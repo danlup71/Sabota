@@ -1,6 +1,7 @@
-﻿module Mutant1.MutationDefinitions
+﻿module Mutant1.MuationDefinitions
 
 open Mutant1.MutationCandidates
+
 
 type MutationDefinition =
     {
@@ -8,7 +9,8 @@ type MutationDefinition =
         Replacement : string
     }
 
-let getDefinition = function
+let getDefinition (kind:Mutant1.MutationKind) =
+    match kind with
     | EqualityToInequality ->
         { Original = "="
           Replacement = "<>" }
@@ -25,6 +27,22 @@ let getDefinition = function
         { Original = "false"
           Replacement = "true" }
         
+    | GreaterToGreaterOrEqual -> 
+        { Original = ">"
+          Replacement = ">=" }
+        
+    | GreaterOrEqualToGreater -> 
+        { Original = ">="
+          Replacement = ">" }
+        
+    | LessToLessOrEqual -> 
+        { Original = "<"
+          Replacement = "<=" }
+        
+    | LessOrEqualToLess -> 
+        { Original = "<="
+          Replacement = "<" }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind

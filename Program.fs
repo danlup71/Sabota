@@ -2,17 +2,10 @@
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Mutant1.Files
+open Mutant1.MuationDefinitions
 open Mutant1.MutationCandidates
-open Mutant1.MutationDefinitions
 open Mutant1.Visitor
 open Mutant1.Report
-
-let printfnColor (color: ConsoleColor) text : 'a =
-    Console.ForegroundColor <- color
-    let result = printfn text
-    Console.ResetColor()
-    result
-
 
 let checker = FSharpChecker.Create()
 
@@ -42,9 +35,9 @@ let result =
     |> List.map enrich
     |> List.map ( fun candidate ->
             
-            copyFileAsOriginal file |> ignore
-        
-            replaceRange file candidate.Range candidate.Replacement
+            copyFileAsOriginal candidate.File |> ignore
+
+            applyMutation candidate
 
             build sourcePrj |> ignore
 
@@ -76,7 +69,7 @@ let result =
 
 let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
 let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
-printfnColor ConsoleColor.DarkGreen $"KILLED {killed} !"
+printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
 printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
            
 

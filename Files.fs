@@ -1,10 +1,17 @@
 ﻿module Mutant1.Files
 
-open FSharp.Compiler.Text
+open System
 open System.IO
+open Mutant1.MutationCandidates
+
+let printfnColor (color: ConsoleColor) text : 'a =
+    Console.ForegroundColor <- color
+    let result = printfn text
+    Console.ResetColor()
+    result
 
 let copyFileAsOriginal (filePath: string) : string =
-    printfn "Create original file copy"
+    printfn "" //""Create original file copy"
     
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"Source file not found: {filePath}"
@@ -21,7 +28,7 @@ let copyFileAsOriginal (filePath: string) : string =
     
     
 let restoreFromOriginal (filePath: string) : string =
-    printfn $"restore original files"
+    //printfn $"restore original files"
 
     let directory = Path.GetDirectoryName filePath
     let fileNameWithoutExt = Path.GetFileNameWithoutExtension filePath
@@ -37,8 +44,13 @@ let restoreFromOriginal (filePath: string) : string =
     filePath
 
 
-let replaceRange (filePath: string) (r: range) (replacement: string) : unit =
-    printfn $"replaceRange with [{replacement}]"
+let applyMutation (mutation:MutationCandidate): unit =
+    
+    let filePath = mutation.File
+    let r = mutation.Range
+    let replacement = mutation.Replacement
+    
+    printfn $"apply mutation {mutation.Kind}"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"Source file not found: {filePath}"
@@ -121,7 +133,7 @@ let replaceRange (filePath: string) (r: range) (replacement: string) : unit =
 
 
 let build (filePath: string) : int * string * string =
-    printf $"building mutated project... "
+    printfn "      -> building"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
@@ -135,9 +147,7 @@ let build (filePath: string) : int * string * string =
 
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
-
-    printfn $" built !"
-    
+   
     let stdout = proc.StandardOutput.ReadToEnd()
     let stderr = proc.StandardError.ReadToEnd()
     let exitCode = proc.ExitCode
@@ -156,7 +166,7 @@ type TestResult = {
 }
 
 let test (filePath: string) : TestResult =
-    printf $"testing mutated project... "
+    printfn "      -> testing"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
@@ -169,9 +179,7 @@ let test (filePath: string) : TestResult =
 
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
-
-    printf $" tested !"
-    
+   
     let stdout = proc.StandardOutput.ReadToEnd()
     let exitCode = proc.ExitCode
 
@@ -196,6 +204,12 @@ let test (filePath: string) : TestResult =
     let duration = tryStr @"Duration:\s*(\d+\s*ms)"
     let project = tryStr @"(\S+\.dll)\s*\(net"
 
+    if failed > 0
+        then
+            printfnColor ConsoleColor.DarkGreen "      -> KILLED"
+        else
+            printfnColor ConsoleColor.Red "      -> SURVIVED"
+    
     {
         Result = result
         Failed = failed
@@ -205,6 +219,5 @@ let test (filePath: string) : TestResult =
         Duration = duration
         Project = project
     }
-    
     
     

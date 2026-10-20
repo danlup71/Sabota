@@ -1,7 +1,5 @@
 ﻿module Mutant1.Report
 
-open Mutant1.MutationTypes
-
 type MutationStatus =
     | Killed
     | Survived

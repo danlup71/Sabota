@@ -1,4 +1,4 @@
-﻿module Mutant1.MutationTypes
+﻿namespace Mutant1
 
 (*
 
