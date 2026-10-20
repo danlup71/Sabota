@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Sample1.fs" />
+        <Compile Include="Sample2.fs" />
+        <Compile Include="Sample3.fs" />
+    </ItemGroup>
+
+</Project>
