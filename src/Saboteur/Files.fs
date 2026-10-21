@@ -40,7 +40,20 @@ let restoreFromOriginal (filePath: string) : string =
     if not (File.Exists originalFilePath) then
         invalidArg (nameof filePath) $"Backup file not found: {originalFilePath}"
 
+    // Read the backup content before copying, so we can verify after restore
+    let backupContent = File.ReadAllText(originalFilePath)
+
+    // Copy the backup back over the mutated file
     File.Copy(originalFilePath, filePath, overwrite = true)
+
+    // Verify the restored file matches the backup
+    let restoredContent = File.ReadAllText(filePath)
+    if restoredContent <> backupContent then
+        invalidArg (nameof filePath) $"Restore verification failed: restored file does not match backup at {originalFilePath}"
+
+    // Safe to delete the temporary backup now that restore is verified
+    File.Delete originalFilePath
+
     filePath
 
 
