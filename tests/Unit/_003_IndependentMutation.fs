@@ -29,101 +29,111 @@ let parseSource (source: string) : ParsedInput =
         if File.Exists tempFile then
             File.Delete(tempFile)
 
-// --- copyFileAsOriginal tests ---
+// --- createWorkFolder tests ---
 
 [<Fact>]
-let ``copyFileAsOriginal creates backup file`` () =
+let ``createWorkFolder creates unique directory`` () =
+    let workFolder = createWorkFolder ()
+    try
+        Assert.True(Directory.Exists workFolder)
+        Assert.Contains("run-", workFolder)
+        Assert.Contains("sabota", workFolder)
+    finally
+        if Directory.Exists workFolder then
+            Directory.Delete(workFolder, true)
+
+[<Fact>]
+let ``createWorkFolder creates sabota parent directory`` () =
+    let tempDir = Environment.GetEnvironmentVariable("TEMP")
+    let sabotaDir = Path.Combine(tempDir, "sabota")
+    
+    let workFolder = createWorkFolder ()
+    try
+        Assert.True(Directory.Exists sabotaDir)
+        Assert.StartsWith(sabotaDir, workFolder)
+    finally
+        // Only delete our own work folder, not the shared sabota directory
+        if Directory.Exists workFolder then
+            Directory.Delete(workFolder, true)
+
+// --- copyProjectToWorkFolder tests ---
+
+[<Fact>]
+let ``copyProjectToWorkFolder copies project files`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    File.WriteAllText(fileFs, "let x = true")
+    
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
+    let sourceFile = Path.Combine(tempDir, "Source.fs")
+    File.WriteAllText(sourceFile, "let x = 1")
 
     try
-        let backupPath = copyFileAsOriginal fileFs
-        Assert.True(File.Exists backupPath)
-        Assert.Equal("test_original.fs", Path.GetFileName backupPath)
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            
+            Assert.True(File.Exists workProject)
+            Assert.True(File.Exists (Path.Combine(Path.GetDirectoryName workProject, "Source.fs")))
+            
+            let content = File.ReadAllText (Path.Combine(Path.GetDirectoryName workProject, "Source.fs"))
+            Assert.Equal("let x = 1", content)
+        finally
+            deleteWorkFolder workFolder
     finally
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``copyFileAsOriginal backup content matches original`` () =
+let ``copyProjectToWorkFolder preserves file content`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    let content = "let x = true\nlet y = false"
-    File.WriteAllText(fileFs, content)
+    
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
+    let sourceFile = Path.Combine(tempDir, "Source.fs")
+    let originalContent = "let a = true\nlet b = false"
+    File.WriteAllText(sourceFile, originalContent)
 
     try
-        let backupPath = copyFileAsOriginal fileFs
-        let backupContent = File.ReadAllText(backupPath)
-        Assert.Equal(content, backupContent)
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            
+            let workSourceDir = Path.GetDirectoryName workProject
+            let workSourceFile = Path.Combine(workSourceDir, "Source.fs")
+            let copiedContent = File.ReadAllText workSourceFile
+            
+            Assert.Equal(originalContent, copiedContent)
+        finally
+            deleteWorkFolder workFolder
     finally
         Directory.Delete(tempDir, true)
+
+// --- mapFileToWorkFolder tests ---
 
 [<Fact>]
-let ``copyFileAsOriginal overwrites existing backup`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    File.WriteAllText(fileFs, "let x = 1")
+let ``mapFileToWorkFolder maps file correctly`` () =
+    let sourceDir = @"C:\Projects\Sample1"
+    let workDir = @"C:\Temp\sabota\run-123\Sample1"
+    let originalFile = @"C:\Projects\Sample1\Source.fs"
+    
+    let mappedFile = mapFileToWorkFolder originalFile sourceDir workDir
+    
+    Assert.Contains("Source.fs", mappedFile)
 
-    let backupPath1 = copyFileAsOriginal fileFs
-    File.WriteAllText(fileFs, "let x = 2")
-    let backupPath2 = copyFileAsOriginal fileFs
-
-    try
-        Assert.Equal(backupPath1, backupPath2)
-        let backupContent = File.ReadAllText(backupPath2)
-        Assert.Equal("let x = 2", backupContent)
-    finally
-        Directory.Delete(tempDir, true)
-
-// --- restoreFromOriginal tests ---
+// --- deleteWorkFolder tests ---
 
 [<Fact>]
-let ``restoreFromOriginal restores mutated file to original content`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    let originalContent = "let x = true"
-    File.WriteAllText(fileFs, originalContent)
-
-    try
-        copyFileAsOriginal fileFs |> ignore
-        File.WriteAllText(fileFs, "let x = false")
-        restoreFromOriginal fileFs |> ignore
-
-        let restoredContent = File.ReadAllText(fileFs)
-        Assert.Equal(originalContent, restoredContent)
-    finally
-        Directory.Delete(tempDir, true)
+let ``deleteWorkFolder removes directory`` () =
+    let workFolder = createWorkFolder ()
+    Assert.True(Directory.Exists workFolder)
+    
+    deleteWorkFolder workFolder
+    Assert.False(Directory.Exists workFolder)
 
 [<Fact>]
-let ``restoreFromOriginal deletes backup file`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    File.WriteAllText(fileFs, "let x = true")
-
-    try
-        let backupPath = copyFileAsOriginal fileFs
-        restoreFromOriginal fileFs |> ignore
-        Assert.False(File.Exists backupPath)
-    finally
-        Directory.Delete(tempDir, true)
-
-[<Fact>]
-let ``restoreFromOriginal throws when backup missing`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-    let fileFs = Path.Combine(tempDir, "test.fs")
-    File.WriteAllText(fileFs, "let x = true")
-
-    try
-        Assert.Throws<System.ArgumentException>(fun () ->
-            restoreFromOriginal fileFs |> ignore)
-    finally
-        Directory.Delete(tempDir, true)
+let ``deleteWorkFolder handles non-existent directory`` () =
+    deleteWorkFolder @"C:\NonExistent\Path"
 
 // --- applyMutation tests ---
 
@@ -192,11 +202,11 @@ let ``applyMutation preserves surrounding code`` () =
     Directory.CreateDirectory(tempDir) |> ignore
     let fileFs = Path.Combine(tempDir, "test.fs")
     let content = """
-module TestModule
-let a = 1
-let flag = true
-let b = 2
-"""
+    module TestModule
+    let a = 1
+    let flag = true
+    let b = 2
+    """
     File.WriteAllText(fileFs, content)
 
     try
@@ -216,9 +226,11 @@ let b = 2
 // --- Independent mutation execution tests ---
 
 [<Fact>]
-let ``each mutation is applied and restored independently`` () =
+let ``each mutation is applied independently with file restore`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
     let fileFs = Path.Combine(tempDir, "test.fs")
     let originalContent = "let a = true\nlet b = false"
     File.WriteAllText(fileFs, originalContent)
@@ -227,12 +239,28 @@ let ``each mutation is applied and restored independently`` () =
         let parsed = parseSource originalContent
         let candidates = findMutationCandidates fileFs parsed |> List.map enrich
 
-        for candidate in candidates do
-            copyFileAsOriginal fileFs |> ignore
-            applyMutation candidate
-            let mutatedContent = File.ReadAllText(fileFs)
-            Assert.NotEqual<string>(originalContent, mutatedContent)
-            restoreFromOriginal fileFs |> ignore
+        // Single work folder for all mutations
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            let workDir = Path.GetDirectoryName workProject
+            let workFile = mapFileToWorkFolder fileFs tempDir workDir
+
+            for candidate in candidates do
+                let workCandidate = { candidate with File = workFile }
+                applyMutation workCandidate
+                
+                let mutatedContent = File.ReadAllText workFile
+                Assert.NotEqual<string>(originalContent, mutatedContent)
+
+                // Restore original for next mutation
+                restoreFile fileFs workFile
+
+            // After all mutations and restores, work file should match original
+            let restoredContent = File.ReadAllText workFile
+            Assert.Equal(originalContent, restoredContent)
+        finally
+            deleteWorkFolder workFolder
 
         let finalContent = File.ReadAllText(fileFs)
         Assert.Equal(originalContent, finalContent)
@@ -240,9 +268,11 @@ let ``each mutation is applied and restored independently`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``mutations do not interfere with each other`` () =
+let ``mutations do not interfere with each other using file restore`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
     let fileFs = Path.Combine(tempDir, "test.fs")
     let originalContent = "let a = true\nlet b = false"
     File.WriteAllText(fileFs, originalContent)
@@ -254,71 +284,95 @@ let ``mutations do not interfere with each other`` () =
         let trueToFalse = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let falseToTrue = candidates |> List.find (fun c -> c.Kind = MutationKind.FalseToTrue)
 
-        // Apply first mutation
-        copyFileAsOriginal fileFs |> ignore
-        applyMutation trueToFalse
-        let content1 = File.ReadAllText(fileFs)
-        Assert.Contains("false", content1)
+        // Single work folder shared by both mutations
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            let workDir = Path.GetDirectoryName workProject
+            let workFile = mapFileToWorkFolder fileFs tempDir workDir
 
-        // Restore and apply second mutation
-        restoreFromOriginal fileFs |> ignore
-        copyFileAsOriginal fileFs |> ignore
-        applyMutation falseToTrue
-        let content2 = File.ReadAllText(fileFs)
-        Assert.Contains("true", content2)
+            // First mutation: true -> false
+            let workCandidate1 = { trueToFalse with File = workFile }
+            applyMutation workCandidate1
+            let content1 = File.ReadAllText workFile
+            Assert.Contains("false", content1)
+            
+            // Restore original
+            restoreFile fileFs workFile
 
-        // Verify first mutation is not present
-        restoreFromOriginal fileFs |> ignore
+            // Second mutation: false -> true (on restored original)
+            let workCandidate2 = { falseToTrue with File = workFile }
+            applyMutation workCandidate2
+            let content2 = File.ReadAllText workFile
+            Assert.Contains("true", content2)
+        finally
+            deleteWorkFolder workFolder
+
         let finalContent = File.ReadAllText(fileFs)
         Assert.Equal(originalContent, finalContent)
     finally
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``full cycle preserves file across multiple mutations`` () =
+let ``full cycle preserves original file across multiple mutations`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
     let fileFs = Path.Combine(tempDir, "test.fs")
     let originalContent = """
-module TestModule
-let isEqual x y = x = y
-let flag = true
-let check x =
-    if x <> 0 then
-        true
-    else
-        false
-"""
+    module TestModule
+    let isEqual x y = x = y
+    let flag = true
+    let check x =
+        if x <> 0 then
+            true
+        else
+            false
+    """
     File.WriteAllText(fileFs, originalContent)
 
     try
         let parsed = parseSource originalContent
         let candidates = findMutationCandidates fileFs parsed |> List.map enrich
 
-        let mutationResults =
-            candidates |> List.map (fun candidate ->
-                copyFileAsOriginal fileFs |> ignore
-                applyMutation candidate
-                let mutatedContent = File.ReadAllText(fileFs)
-                restoreFromOriginal fileFs |> ignore
-                (candidate.Kind, mutatedContent)
-            )
+        // Single work folder for all mutations
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            let workDir = Path.GetDirectoryName workProject
+            let workFile = mapFileToWorkFolder fileFs tempDir workDir
 
-        // Verify file is restored to original after all mutations
-        let finalContent = File.ReadAllText(fileFs)
-        Assert.Equal(originalContent, finalContent)
+            let mutationResults =
+                candidates |> List.map (fun candidate ->
+                    let workCandidate = { candidate with File = workFile }
+                    applyMutation workCandidate
+                    let mutatedContent = File.ReadAllText workFile
+                    restoreFile fileFs workFile
+                    (candidate.Kind, mutatedContent)
+                )
 
-        // Verify each mutation produced a different result
-        Assert.Equal(candidates.Length, mutationResults.Length)
-        for (kind, mutatedContent) in mutationResults do
-            Assert.NotEqual<string>(originalContent, mutatedContent)
+            // After all mutations and restores, work file should match original
+            let restoredContent = File.ReadAllText workFile
+            Assert.Equal(originalContent, restoredContent)
+
+            let finalContent = File.ReadAllText(fileFs)
+            Assert.Equal(originalContent, finalContent)
+
+            Assert.Equal(candidates.Length, mutationResults.Length)
+            for (kind, mutatedContent) in mutationResults do
+                Assert.NotEqual<string>(originalContent, mutatedContent)
+        finally
+            deleteWorkFolder workFolder
     finally
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``each mutation only changes its target range`` () =
+let ``each mutation only changes its target range with file restore`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
     let fileFs = Path.Combine(tempDir, "test.fs")
     let originalContent = "let a = true\nlet b = 1 = 2"
     File.WriteAllText(fileFs, originalContent)
@@ -327,23 +381,40 @@ let ``each mutation only changes its target range`` () =
         let parsed = parseSource originalContent
         let candidates = findMutationCandidates fileFs parsed |> List.map enrich
 
-        for candidate in candidates do
-            copyFileAsOriginal fileFs |> ignore
-            applyMutation candidate
-            let mutatedContent = File.ReadAllText(fileFs)
+        // Single work folder for all mutations
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            let workDir = Path.GetDirectoryName workProject
+            let workFile = mapFileToWorkFolder fileFs tempDir workDir
 
-            // Only one token should be changed
-            let originalLines = originalContent.Split('\n')
-            let mutatedLines = mutatedContent.Split('\n')
-            let changedLines =
-                originalLines
-                |> List.ofArray
-                |> List.mapi (fun i line -> (i, line))
-                |> List.filter (fun (i, line) ->
-                    i < mutatedLines.Length && mutatedLines.[i] <> line)
+            for candidate in candidates do
+                let workCandidate = { candidate with File = workFile }
+                applyMutation workCandidate
+                let mutatedContent = File.ReadAllText workFile
 
-            Assert.Single changedLines
-            restoreFromOriginal fileFs |> ignore
+                let originalLines = originalContent.Split('\n')
+                let mutatedLines = mutatedContent.Split('\n')
+                let changedLines =
+                    originalLines
+                    |> List.ofArray
+                    |> List.mapi (fun i line -> (i, line))
+                    |> List.filter (fun (i, line) ->
+                        i < mutatedLines.Length && mutatedLines.[i] <> line)
+
+                Assert.Single changedLines
+
+                // Restore original for next mutation
+                restoreFile fileFs workFile
+
+            // After all mutations and restores, work file should match original
+            let restoredContent = File.ReadAllText workFile
+            Assert.Equal(originalContent, restoredContent)
+        finally
+            deleteWorkFolder workFolder
+
+        let finalContent = File.ReadAllText(fileFs)
+        Assert.Equal(originalContent, finalContent)
     finally
         Directory.Delete(tempDir, true)
 

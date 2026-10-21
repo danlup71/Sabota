@@ -10,6 +10,7 @@ type FileTarget =
 type ParsedArgs = {
     TestProject : string
     SourceProject : string
+    SolutionRoot : string
     Target : FileTarget
 }
 
@@ -20,6 +21,7 @@ type ParseResult =
 let parseArgs (args : string[]) : ParseResult =
     let mutable testProject = None
     let mutable sourceProject = None
+    let mutable solutionRoot = None
     let mutable filePath = None
     let mutable directoryPath = None
 
@@ -32,6 +34,9 @@ let parseArgs (args : string[]) : ParseResult =
                 loop (i + 2)
             | "-p" when i + 1 < args.Length ->
                 sourceProject <- Some args.[i + 1]
+                loop (i + 2)
+            | "-s" when i + 1 < args.Length ->
+                solutionRoot <- Some args.[i + 1]
                 loop (i + 2)
             | "-f" when i + 1 < args.Length ->
                 filePath <- Some args.[i + 1]
@@ -56,6 +61,7 @@ let parseArgs (args : string[]) : ParseResult =
         [
             if testProject.IsNone then "-t (test project)"
             if sourceProject.IsNone then "-p (source project)"
+            if solutionRoot.IsNone then "-s (solution root)"
             if target.IsNone then "-f (file) or -d (directory)"
         ]
 
@@ -65,6 +71,7 @@ let parseArgs (args : string[]) : ParseResult =
         Ok {
             TestProject = testProject.Value
             SourceProject = sourceProject.Value
+            SolutionRoot = solutionRoot.Value
             Target = target.Value
         }
     else
@@ -80,6 +87,8 @@ let validate (parsed : ParsedArgs) : ParseResult =
                 $"Source project not found: {parsed.SourceProject}"
             if not (parsed.SourceProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then
                 $"Source project must be an F# project (.fsproj): {parsed.SourceProject}"
+            if not (Directory.Exists parsed.SolutionRoot) then
+                $"Solution root not found: {parsed.SolutionRoot}"
             match parsed.Target with
             | File f ->
                 if not (File.Exists f) then
@@ -104,6 +113,7 @@ let parseAndValidate (args : string[]) : ParseResult =
             {
                 TestProject = Path.GetFullPath parsed.TestProject
                 SourceProject = Path.GetFullPath parsed.SourceProject
+                SolutionRoot = Path.GetFullPath parsed.SolutionRoot
                 Target =
                     match parsed.Target with
                     | File f -> File (Path.GetFullPath f)

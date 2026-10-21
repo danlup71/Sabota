@@ -1,4 +1,4 @@
-﻿open System
+open System
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Mutant1.Args
@@ -32,12 +32,13 @@ let parsedArgs =
     match argsResult with
     | Error msg ->
         eprintfn "Error: %s" msg
-        eprintfn "Usage: Saboteur -t <testProject> -p <sourceProject> (-f <filePath> | -d <directory>)"
+        eprintfn "Usage: Saboteur -t <testProject> -p <sourceProject> -s <solutionRoot> (-f <filePath> | -d <directory>)"
         exit 1
     | Ok args -> args
 
 let testPrj = parsedArgs.TestProject
 let sourcePrj = parsedArgs.SourceProject
+let solutionRoot = parsedArgs.SolutionRoot
 
 let files =
     match parsedArgs.Target with
@@ -45,6 +46,11 @@ let files =
     | Directory d ->
         Directory.GetFiles(d, "*.fs")
         |> Array.toList
+
+// Get the source directory for mapping files to work folder
+let sourceDir = Path.GetDirectoryName sourcePrj
+// Get the solution directory name for mapping in work folder
+let solutionDirName = Path.GetFileName solutionRoot
 
 let processFile (file : string) : list<MutationResult> =
     let source = File.ReadAllText(file)
@@ -64,40 +70,79 @@ let processFile (file : string) : list<MutationResult> =
 
     printfn "detect mutation candidates"
 
-    findMutationCandidates file parseResult.ParseTree
-    |> List.map enrich
-    |> List.map ( fun candidate ->
-            
-            copyFileAsOriginal candidate.File |> ignore
+    let candidates = findMutationCandidates file parseResult.ParseTree |> List.map enrich
 
-            applyMutation candidate
+    // Create a single work folder and copy the solution once for all mutations in this file
+    let workFolder = createWorkFolder ()
+    let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
 
-            let buildOutcome = build sourcePrj
+    // Map the candidate file to the work folder (relative to solution root)
+    let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
+
+    // Map the source project to the work folder
+    let workProject = mapFileToWorkFolder sourcePrj solutionRoot workSolutionDir
+
+    // Map the test project to the work folder
+    let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
+
+    let results =
+        candidates |> List.map (fun candidate ->
+            // Apply mutation to the COPY in the work folder
+            let workCandidate = { candidate with File = workFile }
+            applyMutation workCandidate
+
+            // Build and test using the work folder project
+            //let buildOutcome = build workProject
+            // let outcome =
+                // match buildOutcome with
+                // | BuildRunnerOutcome.BuildFailed ->
+                //     {
+                //         Status = MutationStatus.BuildFailed
+                //         Interpretation = "Build failed."
+                //     }
+                // | BuildRunnerOutcome.BuildPassed ->
+                //     let testOutcome = test workTestPrj
+                //     match testOutcome with
+                //     | TestRunnerOutcome.TestsFailed ->
+                //         {
+                //             Status = MutationStatus.Killed
+                //             Interpretation = "Tests detected the behavioural change."
+                //         }
+                //     | TestRunnerOutcome.TestsPassed ->
+                //         {
+                //             Status = MutationStatus.Survived
+                //             Interpretation = candidate.SurvivorInterpretation
+                //         }
+
+            let testOutcome = test workTestPrj
             let outcome =
-                match buildOutcome with
-                | BuildRunnerOutcome.BuildFailed ->
+                match testOutcome with
+                | TestRunnerOutcome.BuildFailed ->
                     {
                         Status = MutationStatus.BuildFailed
                         Interpretation = "Build failed."
                     }
-                | BuildRunnerOutcome.BuildPassed ->
-                    let testOutcome = test testPrj
-                    match testOutcome with
-                    | TestRunnerOutcome.TestsFailed ->
-                        {
-                            Status = MutationStatus.Killed
-                            Interpretation = "Tests detected the behavioural change."
-                        }
-                    | TestRunnerOutcome.TestsPassed ->
-                        {
-                            Status = MutationStatus.Survived
-                            Interpretation = candidate.SurvivorInterpretation
-                        }
+                | TestRunnerOutcome.TestsFailed ->
+                    {
+                        Status = MutationStatus.Killed
+                        Interpretation = "Tests detected the behavioural change."
+                    }
+                | TestRunnerOutcome.TestsPassed ->
+                    {
+                        Status = MutationStatus.Survived
+                        Interpretation = candidate.SurvivorInterpretation
+                    }
+                
+            // Restore the original file in the work folder for the next mutation
+            restoreFile file workFile
 
-            restoreFromOriginal file |> ignore
-            
             createMutationResult candidate source outcome
-            )
+        )
+
+    // Clean up the work folder after all mutations
+    deleteWorkFolder workFolder
+
+    results
 
 let result =
     files

@@ -1,4 +1,4 @@
-﻿module Mutant1.Files
+module Mutant1.Files
 
 open System
 open System.IO
@@ -10,60 +10,107 @@ let printfnColor (color: ConsoleColor) text : 'a =
     Console.ResetColor()
     result
 
-let copyFileAsOriginal (filePath: string) : string =
-    printfn "" //""Create original file copy"
-    
-    if not (File.Exists filePath) then
-        invalidArg (nameof filePath) $"Source file not found: {filePath}"
+let timestamp () : string =
+    let now = DateTime.Now
+    sprintf "[%02d:%02d:%02d.%03d]" now.Hour now.Minute now.Second (now.Millisecond / 10)
 
-    let directory = Path.GetDirectoryName filePath
-    let fileNameWithoutExt = Path.GetFileNameWithoutExtension filePath
-    let extension = Path.GetExtension filePath
+let createWorkFolder () : string =
+    let tempDir = Environment.GetEnvironmentVariable("TEMP")
+    let sabotaDir = Path.Combine(tempDir, "sabota")
+    Directory.CreateDirectory(sabotaDir) |> ignore
 
-    let newFileName = $"{fileNameWithoutExt}_original{extension}"
-    let newFilePath = Path.Combine(directory, newFileName)
+    let timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-ff")
+    let workFolder = Path.Combine(sabotaDir, $"run-{timestamp}")
+    Directory.CreateDirectory(workFolder) |> ignore
 
-    File.Copy(filePath, newFilePath, overwrite = true)
-    newFilePath
-    
-    
-let restoreFromOriginal (filePath: string) : string =
-    //printfn $"restore original files"
+    printfnColor ConsoleColor.Cyan $"Work folder created: {workFolder}"
+    workFolder
 
-    let directory = Path.GetDirectoryName filePath
-    let fileNameWithoutExt = Path.GetFileNameWithoutExtension filePath
-    let extension = Path.GetExtension filePath
+let rec copyDirectoryRecursive (sourceDir: string) (targetDir: string) : unit =
+    Directory.CreateDirectory(targetDir) |> ignore
 
-    // Build the _original backup path from the given original path
-    let originalFilePath = Path.Combine(directory, $"{fileNameWithoutExt}_original{extension}")
+    // Copy all files from source directory to target
+    Directory.GetFiles(sourceDir)
+    |> Array.iter (fun file ->
+        let fileName = Path.GetFileName file
+        let targetFile = Path.Combine(targetDir, fileName)
+        File.Copy(file, targetFile, overwrite = true)
+    )
 
-    if not (File.Exists originalFilePath) then
-        invalidArg (nameof filePath) $"Backup file not found: {originalFilePath}"
+    // Recursively copy subdirectories, excluding build artifacts and IDE folders
+    let excludedDirs = Set.ofList ["bin"; "obj"; ".git"; ".vs"]
+    Directory.GetDirectories(sourceDir)
+    |> Array.filter (fun dir ->
+        let dirName = Path.GetFileName dir
+        not (excludedDirs.Contains dirName)
+    )
+    |> Array.iter (fun dir ->
+        let dirName = Path.GetFileName dir
+        let targetSubDir = Path.Combine(targetDir, dirName)
+        copyDirectoryRecursive dir targetSubDir
+    )
 
-    // Read the backup content before copying, so we can verify after restore
-    let backupContent = File.ReadAllText(originalFilePath)
+let copySolutionToWorkFolder (solutionRoot: string) (workFolder: string) : string =
+    let solutionDirName = Path.GetFileName solutionRoot
 
-    // Copy the backup back over the mutated file
-    File.Copy(originalFilePath, filePath, overwrite = true)
+    let targetSolutionDir = Path.Combine(workFolder, solutionDirName)
+    copyDirectoryRecursive solutionRoot targetSolutionDir
 
-    // Verify the restored file matches the backup
-    let restoredContent = File.ReadAllText(filePath)
-    if restoredContent <> backupContent then
-        invalidArg (nameof filePath) $"Restore verification failed: restored file does not match backup at {originalFilePath}"
+    printfnColor ConsoleColor.Cyan $"Solution copied to work folder: {targetSolutionDir}"
+    targetSolutionDir
 
-    // Safe to delete the temporary backup now that restore is verified
-    File.Delete originalFilePath
+let copyProjectToWorkFolder (sourceProjectPath: string) (workFolder: string) : string =
+    let sourceDir = Path.GetDirectoryName sourceProjectPath
+    let sourceDirName = Path.GetFileName sourceDir
 
-    filePath
+    let targetDir = Path.Combine(workFolder, sourceDirName)
+    Directory.CreateDirectory(targetDir) |> ignore
 
+    // Copy all files from source directory to work folder
+    Directory.GetFiles(sourceDir)
+    |> Array.iter (fun file ->
+        let fileName = Path.GetFileName file
+        let targetFile = Path.Combine(targetDir, fileName)
+        File.Copy(file, targetFile, overwrite = true)
+    )
 
-let applyMutation (mutation:MutationCandidate): unit =
-    
+    // Copy subdirectories recursively
+    Directory.GetDirectories(sourceDir)
+    |> Array.iter (fun dir ->
+        let dirName = Path.GetFileName dir
+        let targetSubDir = Path.Combine(targetDir, dirName)
+        Directory.CreateDirectory(targetSubDir) |> ignore
+        Directory.GetFiles(dir)
+        |> Array.iter (fun file ->
+            let fileName = Path.GetFileName file
+            let targetFile = Path.Combine(targetSubDir, fileName)
+            File.Copy(file, targetFile, overwrite = true)
+        )
+    )
+
+    let targetProjectPath = Path.Combine(targetDir, Path.GetFileName sourceProjectPath)
+    printfnColor ConsoleColor.Cyan $"Project copied to work folder: {targetProjectPath}"
+    targetProjectPath
+
+let mapFileToWorkFolder (originalFile: string) (sourceDir: string) (workDir: string) : string =
+    let relativePath = Path.GetRelativePath(sourceDir, originalFile)
+    Path.Combine(workDir, relativePath)
+
+let deleteWorkFolder (workFolder: string) : unit =
+    if Directory.Exists workFolder then
+        Directory.Delete(workFolder, recursive = true)
+        printfnColor ConsoleColor.Cyan $"Work folder deleted: {workFolder}"
+
+let restoreFile (originalFile: string) (workFile: string) : unit =
+    if File.Exists originalFile && File.Exists workFile then
+        File.Copy(originalFile, workFile, overwrite = true)
+
+let applyMutation (mutation: MutationCandidate) : unit =
     let filePath = mutation.File
     let r = mutation.Range
     let replacement = mutation.Replacement
-    
-    printf $"apply mutation {mutation.Kind}"
+
+    printf $"apply mutation {mutation.Kind,-20} {timestamp ()}"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"Source file not found: {filePath}"
@@ -148,13 +195,14 @@ let applyMutation (mutation:MutationCandidate): unit =
 type TestRunnerOutcome =
     | TestsPassed
     | TestsFailed
-    
+    | BuildFailed
+
 type BuildRunnerOutcome =
     | BuildFailed
     | BuildPassed
 
 let build (filePath: string) : BuildRunnerOutcome =
-    printf "      -> building"
+    printf $"  -> building {timestamp ()}"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
@@ -170,13 +218,13 @@ let build (filePath: string) : BuildRunnerOutcome =
     proc.WaitForExit()
 
     if proc.ExitCode <> 0 then
-        printfnColor ConsoleColor.Red "      -> BUILD FAILED"
+        printfnColor ConsoleColor.Red $"  -> BUILD FAILED {timestamp ()}"
         BuildFailed
     else
         BuildPassed
 
 let test (filePath: string) : TestRunnerOutcome =
-    printf "      -> testing"
+    printf $"  -> testing {timestamp ()}"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
@@ -190,11 +238,18 @@ let test (filePath: string) : TestRunnerOutcome =
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
 
-    if proc.ExitCode <> 0 then
-        printfnColor ConsoleColor.DarkGreen "      -> KILLED"
-        TestsFailed
-    else
-        printfnColor ConsoleColor.Red "      -> SURVIVED"
+    let output = proc.StandardOutput.ReadToEnd() 
+    
+    match proc.ExitCode with
+    | 0 ->
+        printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
         TestsPassed
-    
-    
+
+    | _ when output.Contains("Build FAILED") ->
+        printfnColor ConsoleColor.DarkGreen $"  -> NOBUILD {timestamp ()}"
+        TestRunnerOutcome.BuildFailed
+
+    | _ ->
+        printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
+        TestsFailed
+        
