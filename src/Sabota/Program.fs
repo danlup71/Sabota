@@ -50,10 +50,10 @@ let files =
 // Get the solution directory name for mapping in work folder
 let solutionDirName = Path.GetFileName solutionRoot
 
-let processFile (file : string) : list<MutationResult> =
+let processFile (file : string) (workSolutionDir : string) (workTestPrj : string) : list<MutationResult> =
     let source = File.ReadAllText(file)
 
-    printfn "parse file: %s" file
+    printfn $"parse file: {file} {timestamp ()}"
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
@@ -70,15 +70,8 @@ let processFile (file : string) : list<MutationResult> =
 
     let candidates = findMutationCandidates file parseResult.ParseTree |> List.map enrich
 
-    // Create a single work folder and copy the solution once for all mutations in this file
-    let workFolder = createWorkFolder ()
-    let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
-
     // Map the candidate file to the work folder (relative to solution root)
     let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
-
-    // Map the test project to the work folder
-    let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
 
     let results =
         candidates |> List.map (fun candidate ->
@@ -104,21 +97,26 @@ let processFile (file : string) : list<MutationResult> =
                         Status = MutationStatus.Survived
                         Interpretation = candidate.SurvivorInterpretation
                     }
-                
+            
             // Restore the original file in the work folder for the next mutation
             restoreFile file workFile
 
             createMutationResult candidate source outcome
         )
 
-    // Clean up the work folder after all mutations
-    deleteWorkFolder workFolder
-
     results
+
+// Create a single work folder and copy the solution once for all files
+let workFolder = createWorkFolder ()
+let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
+let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
 
 let result =
     files
-    |> List.collect processFile
+    |> List.collect (fun file -> processFile file workSolutionDir workTestPrj)
+
+// Clean up the work folder after all files are processed
+deleteWorkFolder workFolder
 
 let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
 let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length

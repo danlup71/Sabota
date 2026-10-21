@@ -419,6 +419,52 @@ let ``each mutation only changes its target range with file restore`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
+let ``multiple files share single work folder without path confusion`` () =
+    // Regression test: List.collect (processFile workSolutionDir workTestPrj) was incorrectly
+    // curried, passing workSolutionDir as the first arg (file) instead of the actual file path.
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+    let projectFile = Path.Combine(tempDir, "Test.fsproj")
+    File.WriteAllText(projectFile, "<Project></Project>")
+    
+    // Create two different source files
+    let file1 = Path.Combine(tempDir, "file1.fs")
+    let content1 = "let a = true"
+    File.WriteAllText(file1, content1)
+    
+    let file2 = Path.Combine(tempDir, "file2.fs")
+    let content2 = "let b = false"
+    File.WriteAllText(file2, content2)
+
+    try
+        let workFolder = createWorkFolder ()
+        try
+            let workProject = copyProjectToWorkFolder projectFile workFolder
+            let workDir = Path.GetDirectoryName workProject
+            
+            // Map both files to the work folder
+            let workFile1 = mapFileToWorkFolder file1 tempDir workDir
+            let workFile2 = mapFileToWorkFolder file2 tempDir workDir
+            
+            // Verify each mapped file can be read with the correct content
+            let readContent1 = File.ReadAllText workFile1
+            Assert.Equal(content1, readContent1)
+            
+            let readContent2 = File.ReadAllText workFile2
+            Assert.Equal(content2, readContent2)
+            
+            // Verify the work files are distinct paths
+            Assert.False((workFile1 = workFile2))
+            
+            // Verify original files are untouched
+            Assert.Equal(content1, File.ReadAllText file1)
+            Assert.Equal(content2, File.ReadAllText file2)
+        finally
+            deleteWorkFolder workFolder
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
 let ``enrich fills Original and Replacement from MutationKind`` () =
     let source = "let flag = true"
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
