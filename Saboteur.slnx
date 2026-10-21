@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/UserStories.md" />
+  </Folder>
+  <Folder Name="/resources/">
+    <Project Path="resources/Sample1/Sample1.fsproj" />
+    <Project Path="resources/Test1/Test1.fsproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Saboteur/Saboteur.fsproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Unit/Unit.fsproj" />
+  </Folder>
+  
+</Solution>

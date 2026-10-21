@@ -1,5 +1,5 @@
-bin/
-obj/
+src/Saboteur/bin/
+src/Saboteur/obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/

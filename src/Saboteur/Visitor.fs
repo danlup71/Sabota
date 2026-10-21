@@ -5,6 +5,8 @@ open FSharp.Compiler.Text
 
 open Mutant1.MutationCandidates
 
+// TODO after prototyping refactor out with a proper algorithm 
+
 let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationCandidate list =
     let mutable nextId : MutationId = 1
     let mutable acc : MutationCandidate list = []

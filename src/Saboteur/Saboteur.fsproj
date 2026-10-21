@@ -13,7 +13,6 @@
         <Compile Include="Report.fs" />
         <Compile Include="Files.fs" />
         <Compile Include="Program.fs" />
-        <Folder Include="docs\" />
     </ItemGroup>
 
     <ItemGroup>

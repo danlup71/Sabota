@@ -3,6 +3,7 @@
 type MutationStatus =
     | Killed
     | Survived
+    | BuildFailed
     
 type MutationOutcome =
     {

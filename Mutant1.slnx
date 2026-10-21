@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="Mutant1.fsproj" />
-  <Project Path="Sample1/Sample1.fsproj" />
-  <Project Path="Test1/Test1.fsproj" />
-</Solution>
