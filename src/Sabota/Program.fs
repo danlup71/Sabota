@@ -72,35 +72,31 @@ let processFile (file : string) : list<MutationResult> =
 
             applyMutation candidate
 
-            let exitCode, stdout, stderr = build sourcePrj 
-            if (exitCode = 0) then 
-                let tr = test testPrj
-
-                let outcome =
-                    if tr.Failed > 0 then
+            let buildOutcome = build sourcePrj
+            let outcome =
+                match buildOutcome with
+                | BuildRunnerOutcome.BuildFailed ->
+                    {
+                        Status = MutationStatus.BuildFailed
+                        Interpretation = "Build failed."
+                    }
+                | BuildRunnerOutcome.BuildPassed ->
+                    let testOutcome = test testPrj
+                    match testOutcome with
+                    | TestRunnerOutcome.TestsFailed ->
                         {
-                            Status = Killed
+                            Status = MutationStatus.Killed
                             Interpretation = "Tests detected the behavioural change."
                         }
-                    else
+                    | TestRunnerOutcome.TestsPassed ->
                         {
-                            Status = Survived
-                            Interpretation = ""
-                        }                    
-
-                restoreFromOriginal file |> ignore
-                
-                createMutationResult candidate source outcome
-            else
-                let outcome =
-                        {
-                            Status = Killed
-                            Interpretation = "Build failed."
+                            Status = MutationStatus.Survived
+                            Interpretation = candidate.SurvivorInterpretation
                         }
-                        
-                restoreFromOriginal file |> ignore
-                
-                createMutationResult candidate source outcome
+
+            restoreFromOriginal file |> ignore
+            
+            createMutationResult candidate source outcome
             )
 
 let result =

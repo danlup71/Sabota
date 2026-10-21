@@ -12,7 +12,7 @@ let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationC
     let mutable acc : MutationCandidate list = []
 
     let addCandidate (kind: MutationKind) (r: range) =
-        let candidate = { Id = nextId; Kind = kind; File = file; Range = r; Original = ""; Replacement = "" }
+        let candidate = { Id = nextId; Kind = kind; File = file; Range = r; Original = ""; Replacement = ""; SurvivorInterpretation = "" }
         nextId <- nextId + 1
         acc <- candidate :: acc
 

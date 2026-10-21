@@ -10,4 +10,5 @@ type MutationCandidate =
         Range : FSharp.Compiler.Text.Range
         Original : string
         Replacement : string
+        SurvivorInterpretation : string
     }

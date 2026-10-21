@@ -145,7 +145,15 @@ let applyMutation (mutation:MutationCandidate): unit =
     File.WriteAllText(filePath, finalText)
 
 
-let build (filePath: string) : int * string * string =
+type TestRunnerOutcome =
+    | TestsPassed
+    | TestsFailed
+    
+type BuildRunnerOutcome =
+    | BuildFailed
+    | BuildPassed
+
+let build (filePath: string) : BuildRunnerOutcome =
     printf "      -> building"
 
     if not (File.Exists filePath) then
@@ -160,25 +168,14 @@ let build (filePath: string) : int * string * string =
 
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
-   
-    let stdout = proc.StandardOutput.ReadToEnd()
-    let stderr = proc.StandardError.ReadToEnd()
-    let exitCode = proc.ExitCode
 
-    (exitCode, stdout, stderr)
+    if proc.ExitCode <> 0 then
+        printfnColor ConsoleColor.Red "      -> BUILD FAILED"
+        BuildFailed
+    else
+        BuildPassed
 
-
-type TestResult = {
-    Result: string
-    Failed: int
-    Passed: int
-    Total: int
-    Skipped: int
-    Duration: string
-    Project: string
-}
-
-let test (filePath: string) : TestResult =
+let test (filePath: string) : TestRunnerOutcome =
     printf "      -> testing"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
@@ -192,45 +189,12 @@ let test (filePath: string) : TestResult =
 
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
-   
-    let stdout = proc.StandardOutput.ReadToEnd()
-    let exitCode = proc.ExitCode
 
-    let result = if exitCode = 0 then "Passed" else "Failed"
-
-    let opts = System.Text.RegularExpressions.RegexOptions.IgnoreCase
-
-    let tryInt (pattern: string) =
-        match System.Text.RegularExpressions.Regex.Match(stdout, pattern, opts) with
-        | m when m.Success -> int m.Groups[1].Value
-        | _ -> 0
-
-    let tryStr (pattern: string) =
-        match System.Text.RegularExpressions.Regex.Match(stdout, pattern, opts) with
-        | m when m.Success -> m.Groups[1].Value.Trim()
-        | _ -> ""
-
-    let failed = tryInt @"Failed:\s*(\d+)"
-    let passed = tryInt @"Passed:\s*(\d+)"
-    let total = tryInt @"Total:\s*(\d+)"
-    let skipped = tryInt @"Skipped:\s*(\d+)"
-    let duration = tryStr @"Duration:\s*(\d+\s*ms)"
-    let project = tryStr @"(\S+\.dll)\s*\(net"
-
-    if failed > 0
-        then
-            printfnColor ConsoleColor.DarkGreen "      -> KILLED"
-        else
-            printfnColor ConsoleColor.Red "      -> SURVIVED"
-    
-    {
-        Result = result
-        Failed = failed
-        Passed = passed
-        Total = total
-        Skipped = skipped
-        Duration = duration
-        Project = project
-    }
+    if proc.ExitCode <> 0 then
+        printfnColor ConsoleColor.DarkGreen "      -> KILLED"
+        TestsFailed
+    else
+        printfnColor ConsoleColor.Red "      -> SURVIVED"
+        TestsPassed
     
     
