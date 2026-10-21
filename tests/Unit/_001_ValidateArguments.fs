@@ -1,4 +1,4 @@
-module Tests.ValidateArguments
+module Tests._001_ValidateArguments
 
 open System
 open System.IO
@@ -20,20 +20,20 @@ let ``parseArgs with -t -p -f returns Ok with File target`` () =
 
 [<Fact>]
 let ``parseArgs with -t -p -d returns Ok with Directory target`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-d"; "srcdir"|]
+    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-d"; "src_dir"|]
     match parseArgs args with
     | Ok parsed ->
         Assert.Equal("test.fsproj", parsed.TestProject)
         Assert.Equal("source.fsproj", parsed.SourceProject)
         match parsed.Target with
-        | Directory d -> Assert.Equal("srcdir", d)
+        | Directory d -> Assert.Equal("src_dir", d)
         | File _ -> Assert.Fail("Expected Directory target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
 
 [<Fact>]
 let ``parseArgs with both -f and -d returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-f"; "file.fs"; "-d"; "srcdir"|]
+    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-f"; "file.fs"; "-d"; "src_dir"|]
     match parseArgs args with
     | Error msg ->
         Assert.Contains("mutually exclusive", msg)
@@ -144,7 +144,7 @@ let ``validate with existing files returns Ok`` () =
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``validate source project without .fsproj extension returns Error`` () =
@@ -172,7 +172,7 @@ let ``validate source project without .fsproj extension returns Error`` () =
         | Ok _ ->
             Assert.Fail("Expected Error for non-.fsproj source project")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``validate file without .fs extension returns Error`` () =
@@ -200,7 +200,7 @@ let ``validate file without .fs extension returns Error`` () =
         | Ok _ ->
             Assert.Fail("Expected Error for non-.fs file")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``validate with existing directory returns Ok`` () =
@@ -209,8 +209,8 @@ let ``validate with existing directory returns Ok`` () =
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
     let sourcePrj = Path.Combine(tempDir, "source.fsproj")
-    let srcDir = Path.Combine(tempDir, "src")
-    Directory.CreateDirectory(srcDir) |> ignore
+    let src_dir = Path.Combine(tempDir, "src")
+    Directory.CreateDirectory(src_dir) |> ignore
 
     File.WriteAllText(testPrj, "<Project/>")
     File.WriteAllText(sourcePrj, "<Project/>")
@@ -218,7 +218,7 @@ let ``validate with existing directory returns Ok`` () =
     let parsed = {
         TestProject = testPrj
         SourceProject = sourcePrj
-        Target = Directory srcDir
+        Target = Directory src_dir
     }
 
     try
@@ -227,7 +227,7 @@ let ``validate with existing directory returns Ok`` () =
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``validate with non-existent directory returns Error`` () =
@@ -236,7 +236,7 @@ let ``validate with non-existent directory returns Error`` () =
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
     let sourcePrj = Path.Combine(tempDir, "source.fsproj")
-    let nonExistentDir = Path.Combine(tempDir, "nodir")
+    let nonExistentDir = Path.Combine(tempDir, "no_dir")
 
     File.WriteAllText(testPrj, "<Project/>")
     File.WriteAllText(sourcePrj, "<Project/>")
@@ -254,7 +254,7 @@ let ``validate with non-existent directory returns Error`` () =
         | Ok _ ->
             Assert.Fail("Expected Error for non-existent directory")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseAndValidate with -f resolves relative paths to absolute`` () =
@@ -288,7 +288,7 @@ let ``parseAndValidate with -f resolves relative paths to absolute`` () =
             Assert.Fail($"Expected Ok, got Error: {msg}")
     finally
         Environment.CurrentDirectory <- originalDir
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseAndValidate with -d resolves relative paths to absolute`` () =
@@ -297,8 +297,8 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
     let sourcePrj = Path.Combine(tempDir, "source.fsproj")
-    let srcDir = Path.Combine(tempDir, "src")
-    Directory.CreateDirectory(srcDir) |> ignore
+    let src_dir = Path.Combine(tempDir, "src")
+    Directory.CreateDirectory(src_dir) |> ignore
 
     File.WriteAllText(testPrj, "<Project/>")
     File.WriteAllText(sourcePrj, "<Project/>")
@@ -315,14 +315,14 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
             match parsed.Target with
             | Directory d ->
                 Assert.True(Path.IsPathRooted d)
-                Assert.Equal(srcDir, d)
+                Assert.Equal(src_dir, d)
             | File _ ->
                 Assert.Fail("Expected Directory target")
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
     finally
         Environment.CurrentDirectory <- originalDir
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseAndValidate with missing args returns Error`` () =
@@ -363,7 +363,7 @@ let ``parseAndValidate rejects -f with wrong extension`` () =
         | Ok _ ->
             Assert.Fail("Expected Error for .cs file")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseAndValidate rejects -p with wrong extension`` () =
@@ -386,4 +386,4 @@ let ``parseAndValidate rejects -p with wrong extension`` () =
         | Ok _ ->
             Assert.Fail("Expected Error for .csproj source project")
     finally
-        Directory.Delete(tempDir, true) |> ignore
+        Directory.Delete(tempDir, true)

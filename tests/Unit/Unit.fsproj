@@ -6,7 +6,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Tests.fs"/>
+        <Compile Include="_001_ValidateArguments.fs" />
+        <Compile Include="_002_DiscoverMutation.fs" />
     </ItemGroup>
 
     <ItemGroup>

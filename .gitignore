@@ -1,5 +1,11 @@
 src/Saboteur/bin/
 src/Saboteur/obj/
+tests/Unit/bin/
+tests/Unit/obj/
+resources/Test1/bin/
+resources/Test1/obj/
+resources/Sample1/bin/
+resources/Sample1/obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
