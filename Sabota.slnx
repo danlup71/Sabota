@@ -7,7 +7,7 @@
     <Project Path="resources/Test1/Test1.fsproj" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/Saboteur/Saboteur.fsproj" />
+    <Project Path="src/Sabota/Sabota.fsproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Unit/Unit.fsproj" />

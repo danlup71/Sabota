@@ -20,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Saboteur\Saboteur.fsproj" />
+      <ProjectReference Include="..\..\src\Sabota\Sabota.fsproj" />
     </ItemGroup>
 
 </Project>

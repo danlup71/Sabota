@@ -22,7 +22,7 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
         Link = generateLink candidate.File candidate.Range
     }
 
-// src/Saboteur/bin/Debug/net10.0/Saboteur.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
+// src/Sabota/bin/Debug/net10.0/Sabota.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
 let checker = FSharpChecker.Create()
 
