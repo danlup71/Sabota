@@ -111,5 +111,11 @@ let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
 let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
 printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
 printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
-           
+
+let reportPath = generateHtmlReport result
+let forwardPath = reportPath.Replace("\\", "/")
+let linkTarget = sprintf "file:///%s" forwardPath
+let clickable = sprintf "\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\" linkTarget reportPath
+printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
+
 0 |> ignore

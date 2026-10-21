@@ -63,7 +63,7 @@ let applyMutation (mutation:MutationCandidate): unit =
     let r = mutation.Range
     let replacement = mutation.Replacement
     
-    printfn $"apply mutation {mutation.Kind}"
+    printf $"apply mutation {mutation.Kind}"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"Source file not found: {filePath}"
@@ -146,7 +146,7 @@ let applyMutation (mutation:MutationCandidate): unit =
 
 
 let build (filePath: string) : int * string * string =
-    printfn "      -> building"
+    printf "      -> building"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
@@ -179,7 +179,7 @@ type TestResult = {
 }
 
 let test (filePath: string) : TestResult =
-    printfn "      -> testing"
+    printf "      -> testing"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
