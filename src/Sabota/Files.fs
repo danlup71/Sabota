@@ -197,32 +197,6 @@ type TestRunnerOutcome =
     | TestsFailed
     | BuildFailed
 
-type BuildRunnerOutcome =
-    | BuildFailed
-    | BuildPassed
-
-let build (filePath: string) : BuildRunnerOutcome =
-    printf $"  -> building {timestamp ()}"
-
-    if not (File.Exists filePath) then
-        invalidArg (nameof filePath) $"File not found: {filePath}"
-
-    let startInfo = System.Diagnostics.ProcessStartInfo()
-    startInfo.FileName <- "dotnet"
-    startInfo.Arguments <- $"build {filePath}"
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
-
-    use proc = System.Diagnostics.Process.Start(startInfo)
-    proc.WaitForExit()
-
-    if proc.ExitCode <> 0 then
-        printfnColor ConsoleColor.Red $"  -> BUILD FAILED {timestamp ()}"
-        BuildFailed
-    else
-        BuildPassed
-
 let test (filePath: string) : TestRunnerOutcome =
     printf $"  -> testing {timestamp ()}"
     if not (File.Exists filePath) then

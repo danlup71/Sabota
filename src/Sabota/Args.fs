@@ -9,7 +9,6 @@ type FileTarget =
 
 type ParsedArgs = {
     TestProject : string
-    SourceProject : string
     SolutionRoot : string
     Target : FileTarget
 }
@@ -20,7 +19,6 @@ type ParseResult =
 
 let parseArgs (args : string[]) : ParseResult =
     let mutable testProject = None
-    let mutable sourceProject = None
     let mutable solutionRoot = None
     let mutable filePath = None
     let mutable directoryPath = None
@@ -31,9 +29,6 @@ let parseArgs (args : string[]) : ParseResult =
             match args.[i] with
             | "-t" when i + 1 < args.Length ->
                 testProject <- Some args.[i + 1]
-                loop (i + 2)
-            | "-p" when i + 1 < args.Length ->
-                sourceProject <- Some args.[i + 1]
                 loop (i + 2)
             | "-s" when i + 1 < args.Length ->
                 solutionRoot <- Some args.[i + 1]
@@ -60,7 +55,6 @@ let parseArgs (args : string[]) : ParseResult =
     let missing =
         [
             if testProject.IsNone then "-t (test project)"
-            if sourceProject.IsNone then "-p (source project)"
             if solutionRoot.IsNone then "-s (solution root)"
             if target.IsNone then "-f (file) or -d (directory)"
         ]
@@ -70,7 +64,6 @@ let parseArgs (args : string[]) : ParseResult =
     elif List.isEmpty missing then
         Ok {
             TestProject = testProject.Value
-            SourceProject = sourceProject.Value
             SolutionRoot = solutionRoot.Value
             Target = target.Value
         }
@@ -83,10 +76,6 @@ let validate (parsed : ParsedArgs) : ParseResult =
         [
             if not (File.Exists parsed.TestProject) then
                 $"Test project not found: {parsed.TestProject}"
-            if not (File.Exists parsed.SourceProject) then
-                $"Source project not found: {parsed.SourceProject}"
-            if not (parsed.SourceProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then
-                $"Source project must be an F# project (.fsproj): {parsed.SourceProject}"
             if not (Directory.Exists parsed.SolutionRoot) then
                 $"Solution root not found: {parsed.SolutionRoot}"
             match parsed.Target with
@@ -112,7 +101,6 @@ let parseAndValidate (args : string[]) : ParseResult =
         let absolute =
             {
                 TestProject = Path.GetFullPath parsed.TestProject
-                SourceProject = Path.GetFullPath parsed.SourceProject
                 SolutionRoot = Path.GetFullPath parsed.SolutionRoot
                 Target =
                     match parsed.Target with

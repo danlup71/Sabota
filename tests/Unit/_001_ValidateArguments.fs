@@ -6,12 +6,11 @@ open Xunit
 open Mutant1.Args
 
 [<Fact>]
-let ``parseArgs with -t -p -s -f returns Ok with File target`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"|]
+let ``parseArgs with -t -s -f returns Ok with File target`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"|]
     match parseArgs args with
     | Ok parsed ->
         Assert.Equal("test.fsproj", parsed.TestProject)
-        Assert.Equal("source.fsproj", parsed.SourceProject)
         Assert.Equal("solution_root", parsed.SolutionRoot)
         match parsed.Target with
         | File f -> Assert.Equal("file.fs", f)
@@ -20,12 +19,11 @@ let ``parseArgs with -t -p -s -f returns Ok with File target`` () =
         Assert.Fail($"Expected Ok, got Error: {msg}")
 
 [<Fact>]
-let ``parseArgs with -t -p -s -d returns Ok with Directory target`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"; "-d"; "src_dir"|]
+let ``parseArgs with -t -s -d returns Ok with Directory target`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "src_dir"|]
     match parseArgs args with
     | Ok parsed ->
         Assert.Equal("test.fsproj", parsed.TestProject)
-        Assert.Equal("source.fsproj", parsed.SourceProject)
         Assert.Equal("solution_root", parsed.SolutionRoot)
         match parsed.Target with
         | Directory d -> Assert.Equal("src_dir", d)
@@ -35,7 +33,7 @@ let ``parseArgs with -t -p -s -d returns Ok with Directory target`` () =
 
 [<Fact>]
 let ``parseArgs with both -f and -d returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-d"; "src_dir"|]
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-d"; "src_dir"|]
     match parseArgs args with
     | Error msg ->
         Assert.Contains("mutually exclusive", msg)
@@ -44,7 +42,7 @@ let ``parseArgs with both -f and -d returns Error`` () =
 
 [<Fact>]
 let ``parseArgs with neither -f nor -d returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"|]
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"|]
     match parseArgs args with
     | Error msg ->
         Assert.Contains("-f", msg)
@@ -54,7 +52,7 @@ let ``parseArgs with neither -f nor -d returns Error`` () =
 
 [<Fact>]
 let ``parseArgs missing -t returns Error`` () =
-    let args = [|"-p"; "source.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"|]
+    let args = [|"-s"; "solution_root"; "-f"; "file.fs"|]
     match parseArgs args with
     | Error msg ->
         Assert.Contains("-t", msg)
@@ -62,17 +60,8 @@ let ``parseArgs missing -t returns Error`` () =
         Assert.Fail("Expected Error when -t is missing")
 
 [<Fact>]
-let ``parseArgs missing -p returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"|]
-    match parseArgs args with
-    | Error msg ->
-        Assert.Contains("-p", msg)
-    | Ok _ ->
-        Assert.Fail("Expected Error when -p is missing")
-
-[<Fact>]
 let ``parseArgs missing -s returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-f"; "file.fs"|]
+    let args = [|"-t"; "test.fsproj"; "-f"; "file.fs"|]
     match parseArgs args with
     | Error msg ->
         Assert.Contains("-s", msg)
@@ -85,17 +74,16 @@ let ``parseArgs with empty array returns Error`` () =
     match parseArgs args with
     | Error msg ->
         Assert.Contains("-t", msg)
-        Assert.Contains("-p", msg)
+        Assert.Contains("-s", msg)
     | Ok _ ->
         Assert.Fail("Expected Error with empty args")
 
 [<Fact>]
 let ``parseArgs ignores unknown arguments`` () =
-    let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-x"; "unknown"|]
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-x"; "unknown"|]
     match parseArgs args with
     | Ok parsed ->
         Assert.Equal("test.fsproj", parsed.TestProject)
-        Assert.Equal("source.fsproj", parsed.SourceProject)
         Assert.Equal("solution_root", parsed.SolutionRoot)
         match parsed.Target with
         | File f -> Assert.Equal("file.fs", f)
@@ -105,11 +93,10 @@ let ``parseArgs ignores unknown arguments`` () =
 
 [<Fact>]
 let ``parseArgs accepts arguments in any order`` () =
-    let args = [|"-f"; "file.fs"; "-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution_root"|]
+    let args = [|"-f"; "file.fs"; "-t"; "test.fsproj"; "-s"; "solution_root"|]
     match parseArgs args with
     | Ok parsed ->
         Assert.Equal("test.fsproj", parsed.TestProject)
-        Assert.Equal("source.fsproj", parsed.SourceProject)
         Assert.Equal("solution_root", parsed.SolutionRoot)
         match parsed.Target with
         | File f -> Assert.Equal("file.fs", f)
@@ -121,14 +108,12 @@ let ``parseArgs accepts arguments in any order`` () =
 let ``validate with non-existent files returns Error`` () =
     let parsed = {
         TestProject = "C:\nonexistent\test.fsproj"
-        SourceProject = "C:\nonexistent\source.fsproj"
         SolutionRoot = "C:\nonexistent\solution"
         Target = File "C:\nonexistent\file.fs"
     }
     match validate parsed with
     | Error msg ->
         Assert.Contains("Test project not found", msg)
-        Assert.Contains("Source project not found", msg)
         Assert.Contains("Solution root not found", msg)
         Assert.Contains("File not found", msg)
     | Ok _ ->
@@ -140,18 +125,15 @@ let ``validate with existing files returns Ok`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let fileFs = Path.Combine(tempDir, "file.fs")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
     File.WriteAllText(fileFs, "let x = 1")
 
     let parsed = {
         TestProject = testPrj
-        SourceProject = sourcePrj
         SolutionRoot = solutionRoot
         Target = File fileFs
     }
@@ -165,54 +147,20 @@ let ``validate with existing files returns Ok`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``validate source project without .fsproj extension returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.csproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
-    let parsed = {
-        TestProject = testPrj
-        SourceProject = sourcePrj
-        SolutionRoot = solutionRoot
-        Target = File fileFs
-    }
-
-    try
-        match validate parsed with
-        | Error msg ->
-            Assert.Contains(".fsproj", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-.fsproj source project")
-    finally
-        Directory.Delete(tempDir, true)
-
-[<Fact>]
 let ``validate file without .fs extension returns Error`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let fileCs = Path.Combine(tempDir, "file.cs")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
     File.WriteAllText(fileCs, "class Foo {}")
 
     let parsed = {
         TestProject = testPrj
-        SourceProject = sourcePrj
         SolutionRoot = solutionRoot
         Target = File fileCs
     }
@@ -232,18 +180,15 @@ let ``validate with existing directory returns Ok`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let src_dir = Path.Combine(tempDir, "src")
     Directory.CreateDirectory(src_dir) |> ignore
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
 
     let parsed = {
         TestProject = testPrj
-        SourceProject = sourcePrj
         SolutionRoot = solutionRoot
         Target = Directory src_dir
     }
@@ -262,17 +207,14 @@ let ``validate with non-existent directory returns Error`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let nonExistentDir = Path.Combine(tempDir, "no_dir")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
 
     let parsed = {
         TestProject = testPrj
-        SourceProject = sourcePrj
         SolutionRoot = solutionRoot
         Target = Directory nonExistentDir
     }
@@ -292,24 +234,21 @@ let ``parseAndValidate with -f resolves relative paths to absolute`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let fileFs = Path.Combine(tempDir, "file.fs")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
     File.WriteAllText(fileFs, "let x = 1")
 
     let originalDir = Environment.CurrentDirectory
     Environment.CurrentDirectory <- tempDir
 
     try
-        let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution"; "-f"; "file.fs"|]
+        let args = [|"-t"; "test.fsproj"; "-s"; "solution"; "-f"; "file.fs"|]
         match parseAndValidate args with
         | Ok parsed ->
             Assert.True(Path.IsPathRooted parsed.TestProject)
-            Assert.True(Path.IsPathRooted parsed.SourceProject)
             Assert.True(Path.IsPathRooted parsed.SolutionRoot)
             Assert.Equal(solutionRoot, parsed.SolutionRoot)
             match parsed.Target with
@@ -330,24 +269,21 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let src_dir = Path.Combine(tempDir, "src")
     Directory.CreateDirectory(src_dir) |> ignore
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
 
     let originalDir = Environment.CurrentDirectory
     Environment.CurrentDirectory <- tempDir
 
     try
-        let args = [|"-t"; "test.fsproj"; "-p"; "source.fsproj"; "-s"; "solution"; "-d"; "src"|]
+        let args = [|"-t"; "test.fsproj"; "-s"; "solution"; "-d"; "src"|]
         match parseAndValidate args with
         | Ok parsed ->
             Assert.True(Path.IsPathRooted parsed.TestProject)
-            Assert.True(Path.IsPathRooted parsed.SourceProject)
             Assert.True(Path.IsPathRooted parsed.SolutionRoot)
             Assert.Equal(solutionRoot, parsed.SolutionRoot)
             match parsed.Target with
@@ -377,15 +313,13 @@ let ``parseAndValidate missing -s returns Error`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let fileFs = Path.Combine(tempDir, "file.fs")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
     File.WriteAllText(fileFs, "let x = 1")
 
     try
-        let args = [|"-t"; testPrj; "-p"; sourcePrj; "-f"; fileFs|]
+        let args = [|"-t"; testPrj; "-f"; fileFs|]
         match parseAndValidate args with
         | Error msg ->
             Assert.Contains("-s", msg)
@@ -396,7 +330,7 @@ let ``parseAndValidate missing -s returns Error`` () =
 
 [<Fact>]
 let ``parseAndValidate with non-existent files returns Error`` () =
-    let args = [|"-t"; "C:\no\test.fsproj"; "-p"; "C:\no\source.fsproj"; "-s"; "C:\no\solution"; "-f"; "C:\no\file.fs"|]
+    let args = [|"-t"; "C:\no\test.fsproj"; "-s"; "C:\no\solution"; "-f"; "C:\no\file.fs"|]
     match parseAndValidate args with
     | Error msg ->
         Assert.Contains("not found", msg)
@@ -409,46 +343,19 @@ let ``parseAndValidate rejects -f with wrong extension`` () =
     Directory.CreateDirectory(tempDir) |> ignore
 
     let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.fsproj")
     let solutionRoot = Path.Combine(tempDir, "solution")
     Directory.CreateDirectory(solutionRoot) |> ignore
     let fileCs = Path.Combine(tempDir, "file.cs")
 
     File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
     File.WriteAllText(fileCs, "class Foo {}")
 
     try
-        let args = [|"-t"; testPrj; "-p"; sourcePrj; "-s"; solutionRoot; "-f"; fileCs|]
+        let args = [|"-t"; testPrj; "-s"; solutionRoot; "-f"; fileCs|]
         match parseAndValidate args with
         | Error msg ->
             Assert.Contains(".fs", msg)
         | Ok _ ->
             Assert.Fail("Expected Error for .cs file")
-    finally
-        Directory.Delete(tempDir, true)
-
-[<Fact>]
-let ``parseAndValidate rejects -p with wrong extension`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let sourcePrj = Path.Combine(tempDir, "source.csproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(sourcePrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
-    try
-        let args = [|"-t"; testPrj; "-p"; sourcePrj; "-s"; solutionRoot; "-f"; fileFs|]
-        match parseAndValidate args with
-        | Error msg ->
-            Assert.Contains(".fsproj", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for .csproj source project")
     finally
         Directory.Delete(tempDir, true)

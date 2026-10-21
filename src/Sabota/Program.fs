@@ -32,12 +32,11 @@ let parsedArgs =
     match argsResult with
     | Error msg ->
         eprintfn "Error: %s" msg
-        eprintfn "Usage: Saboteur -t <testProject> -p <sourceProject> -s <solutionRoot> (-f <filePath> | -d <directory>)"
+        eprintfn "Usage: Saboteur -t <testProject> -s <solutionRoot> (-f <filePath> | -d <directory>)"
         exit 1
     | Ok args -> args
 
 let testPrj = parsedArgs.TestProject
-let sourcePrj = parsedArgs.SourceProject
 let solutionRoot = parsedArgs.SolutionRoot
 
 let files =
@@ -47,8 +46,7 @@ let files =
         Directory.GetFiles(d, "*.fs")
         |> Array.toList
 
-// Get the source directory for mapping files to work folder
-let sourceDir = Path.GetDirectoryName sourcePrj
+
 // Get the solution directory name for mapping in work folder
 let solutionDirName = Path.GetFileName solutionRoot
 
@@ -79,9 +77,6 @@ let processFile (file : string) : list<MutationResult> =
     // Map the candidate file to the work folder (relative to solution root)
     let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
 
-    // Map the source project to the work folder
-    let workProject = mapFileToWorkFolder sourcePrj solutionRoot workSolutionDir
-
     // Map the test project to the work folder
     let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
 
@@ -90,29 +85,6 @@ let processFile (file : string) : list<MutationResult> =
             // Apply mutation to the COPY in the work folder
             let workCandidate = { candidate with File = workFile }
             applyMutation workCandidate
-
-            // Build and test using the work folder project
-            //let buildOutcome = build workProject
-            // let outcome =
-                // match buildOutcome with
-                // | BuildRunnerOutcome.BuildFailed ->
-                //     {
-                //         Status = MutationStatus.BuildFailed
-                //         Interpretation = "Build failed."
-                //     }
-                // | BuildRunnerOutcome.BuildPassed ->
-                //     let testOutcome = test workTestPrj
-                //     match testOutcome with
-                //     | TestRunnerOutcome.TestsFailed ->
-                //         {
-                //             Status = MutationStatus.Killed
-                //             Interpretation = "Tests detected the behavioural change."
-                //         }
-                //     | TestRunnerOutcome.TestsPassed ->
-                //         {
-                //             Status = MutationStatus.Survived
-                //             Interpretation = candidate.SurvivorInterpretation
-                //         }
 
             let testOutcome = test workTestPrj
             let outcome =
