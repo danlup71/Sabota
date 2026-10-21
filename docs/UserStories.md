@@ -37,6 +37,5 @@ US-012 As a developer, I want new mutation operators to be added without changin
 
 
 
-Saboteur: Friendly neighborhood code vandalism for F#."
-
-"Saboteur: Because your test suite is lying to you, and we're here to prove it.
+Saboteur: Friendly neighborhood code vandalism for F#.
+Because your test suite is lying to you, and we're here to prove it.
