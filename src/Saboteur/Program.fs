@@ -8,6 +8,20 @@ open Mutant1.MutationCandidates
 open Mutant1.Visitor
 open Mutant1.Report
 
+let createMutationResult (candidate: MutationCandidate) (source: string) (outcome: MutationOutcome) =
+    {
+        MutationId = candidate.Id
+        MutationType = candidate.Kind
+        File = candidate.File
+        Range = candidate.Range
+        Original = candidate.Original
+        Mutated = candidate.Replacement
+        Outcome = outcome
+        PreviewOriginal = generatePreviewOriginal source candidate.Range
+        PreviewMutated = generatePreviewMutated source candidate.Range candidate.Original candidate.Replacement
+        Link = generateLink candidate.File candidate.Range
+    }
+
 // src/Saboteur/bin/Debug/net10.0/Saboteur.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
 let checker = FSharpChecker.Create()
@@ -76,15 +90,7 @@ let processFile (file : string) : list<MutationResult> =
 
                 restoreFromOriginal file |> ignore
                 
-                {
-                    MutationId = candidate.Id
-                    MutationType = candidate.Kind
-                    File = file
-                    Range = candidate.Range
-                    Original = candidate.Original
-                    Mutated = candidate.Replacement
-                    Outcome = outcome
-                }
+                createMutationResult candidate source outcome
             else
                 let outcome =
                         {
@@ -94,15 +100,7 @@ let processFile (file : string) : list<MutationResult> =
                         
                 restoreFromOriginal file |> ignore
                 
-                {
-                    MutationId = candidate.Id
-                    MutationType = candidate.Kind
-                    File = file
-                    Range = candidate.Range
-                    Original = candidate.Original
-                    Mutated = candidate.Replacement
-                    Outcome = outcome
-                }
+                createMutationResult candidate source outcome
             )
 
 let result =

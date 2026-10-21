@@ -9,6 +9,7 @@
         <Compile Include="_001_ValidateArguments.fs" />
         <Compile Include="_002_DiscoverMutation.fs" />
         <Compile Include="_003_IndependentMutation.fs" />
+        <Compile Include="_004_Report.fs" />
     </ItemGroup>
 
     <ItemGroup>
