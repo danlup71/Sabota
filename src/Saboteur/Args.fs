@@ -1,0 +1,112 @@
+module Mutant1.Args
+
+open System
+open System.IO
+
+type FileTarget =
+    | File of string
+    | Directory of string
+
+type ParsedArgs = {
+    TestProject : string
+    SourceProject : string
+    Target : FileTarget
+}
+
+type ParseResult =
+    | Ok of ParsedArgs
+    | Error of string
+
+let parseArgs (args : string[]) : ParseResult =
+    let mutable testProject = None
+    let mutable sourceProject = None
+    let mutable filePath = None
+    let mutable directoryPath = None
+
+    let rec loop i =
+        if i >= args.Length then ()
+        else
+            match args.[i] with
+            | "-t" when i + 1 < args.Length ->
+                testProject <- Some args.[i + 1]
+                loop (i + 2)
+            | "-p" when i + 1 < args.Length ->
+                sourceProject <- Some args.[i + 1]
+                loop (i + 2)
+            | "-f" when i + 1 < args.Length ->
+                filePath <- Some args.[i + 1]
+                loop (i + 2)
+            | "-d" when i + 1 < args.Length ->
+                directoryPath <- Some args.[i + 1]
+                loop (i + 2)
+            | _ ->
+                loop (i + 1)
+
+    loop 0
+
+    let target =
+        match filePath, directoryPath with
+        | Some f, None -> Some (File f)
+        | None, Some d -> Some (Directory d)
+        | Some _, Some _ ->
+            Error "-f and -d are mutually exclusive; specify only one" |> fun _ -> None
+        | None, None -> None
+
+    let missing =
+        [
+            if testProject.IsNone then "-t (test project)"
+            if sourceProject.IsNone then "-p (source project)"
+            if target.IsNone then "-f (file) or -d (directory)"
+        ]
+
+    if target.IsNone && (filePath.IsSome && directoryPath.IsSome) then
+        Error "-f and -d are mutually exclusive; specify only one"
+    elif List.isEmpty missing then
+        Ok {
+            TestProject = testProject.Value
+            SourceProject = sourceProject.Value
+            Target = target.Value
+        }
+    else
+        let joined = String.Join(", ", missing)
+        Error $"Missing required arguments: {joined}"
+
+let validate (parsed : ParsedArgs) : ParseResult =
+    let errors =
+        [
+            if not (File.Exists parsed.TestProject) then
+                $"Test project not found: {parsed.TestProject}"
+            if not (File.Exists parsed.SourceProject) then
+                $"Source project not found: {parsed.SourceProject}"
+            if not (parsed.SourceProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then
+                $"Source project must be an F# project (.fsproj): {parsed.SourceProject}"
+            match parsed.Target with
+            | File f ->
+                if not (File.Exists f) then
+                    $"File not found: {f}"
+                elif not (f.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)) then
+                    $"File must be an F# source file (.fs): {f}"
+            | Directory d ->
+                if not (Directory.Exists d) then
+                    $"Directory not found: {d}"
+        ]
+
+    if List.isEmpty errors then
+        Ok parsed
+    else
+        Error (String.Join("\n", errors))
+
+let parseAndValidate (args : string[]) : ParseResult =
+    match parseArgs args with
+    | Error msg -> Error msg
+    | Ok parsed ->
+        let absolute =
+            {
+                TestProject = Path.GetFullPath parsed.TestProject
+                SourceProject = Path.GetFullPath parsed.SourceProject
+                Target =
+                    match parsed.Target with
+                    | File f -> File (Path.GetFullPath f)
+                    | Directory d -> Directory (Path.GetFullPath d)
+            }
+        validate absolute

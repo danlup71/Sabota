@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Args.fs" />
         <Compile Include="MutationTypes.fs" />
         <Compile Include="MutationCandidates.fs" />
         <Compile Include="MutationDefinitions.fs" />

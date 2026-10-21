@@ -1,10 +1,10 @@
 *Epic: Execute mutation testing on an F# project*
 
 US-001 As a developer, I want to run Mutant against an F# project, so that I can evaluate the effectiveness of my test suite.
-a- As a developer, I want to specify the source project to mutate, so that Mutant knows which codebase to analyze.
-b- As a developer, I want to specify the test project to execute, so that Mutant can verify whether mutations are detected.
-c- As a developer, I want to restrict mutation analysis to specific files, so that I can focus on a subset of the codebase.
-d- As a developer, I want to restrict mutation analysis to specific directories, so that I can test large solutions incrementally.
+    a- wanna specify the source project to mutate, so that Mutant knows which codebase to analyze.
+    b- wanna specify the test project to execute, so that Mutant can verify whether mutations are detected.
+    c- wanna restrict mutation analysis to specific files, so that I can focus on a subset of the codebase.
+    d- wanna restrict mutation analysis to specific directories, so that I can test large solutions incrementally.
 
 
 US-002 As a developer, I want Mutant to discover possible mutations in my source code, so that I know which parts of the application can be challenged.

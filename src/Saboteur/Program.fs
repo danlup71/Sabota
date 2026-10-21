@@ -1,36 +1,55 @@
 ﻿open System
 open System.IO
 open FSharp.Compiler.CodeAnalysis
+open Mutant1.Args
 open Mutant1.Files
 open Mutant1.MuationDefinitions
 open Mutant1.MutationCandidates
 open Mutant1.Visitor
 open Mutant1.Report
 
+// src/Saboteur/bin/Debug/net10.0/Saboteur.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
+
 let checker = FSharpChecker.Create()
 
-let testPrj = $"..\\..\\..\\Test1\\Test1.fsproj"
-let sourcePrj = $"..\\..\\..\\Sample1\\Sample1.fsproj"
-let file = $"..\\..\\..\\Sample1\\Sample3.fs"
-let source = File.ReadAllText(file)
+let argsResult = parseAndValidate (System.Environment.GetCommandLineArgs())
 
-// Parse file
-printfn "parse file"
+let parsedArgs =
+    match argsResult with
+    | Error msg ->
+        eprintfn "Error: %s" msg
+        eprintfn "Usage: Saboteur -t <testProject> -p <sourceProject> (-f <filePath> | -d <directory>)"
+        exit 1
+    | Ok args -> args
 
-let parsingOptions =
-    { FSharpParsingOptions.Default with
-        SourceFiles = [| file |] }
+let testPrj = parsedArgs.TestProject
+let sourcePrj = parsedArgs.SourceProject
 
-let parseResult =
-    checker.ParseFile(
-        file,
-        FSharp.Compiler.Text.SourceText.ofString source,
-        parsingOptions)
-    |> Async.RunSynchronously
+let files =
+    match parsedArgs.Target with
+    | File f -> [f]
+    | Directory d ->
+        Directory.GetFiles(d, "*.fs")
+        |> Array.toList
 
-printfn "detect mutation candidates"
+let processFile (file : string) : list<MutationResult> =
+    let source = File.ReadAllText(file)
 
-let result =
+    printfn "parse file: %s" file
+
+    let parsingOptions =
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| file |] }
+
+    let parseResult =
+        checker.ParseFile(
+            file,
+            FSharp.Compiler.Text.SourceText.ofString source,
+            parsingOptions)
+        |> Async.RunSynchronously
+
+    printfn "detect mutation candidates"
+
     findMutationCandidates file parseResult.ParseTree
     |> List.map enrich
     |> List.map ( fun candidate ->
@@ -54,7 +73,7 @@ let result =
                             Status = Survived
                             Interpretation = ""
                         }                    
-                                                    
+
                 restoreFromOriginal file |> ignore
                 
                 {
@@ -85,11 +104,14 @@ let result =
                     Outcome = outcome
                 }
             )
-                
+
+let result =
+    files
+    |> List.collect processFile
+
 let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
 let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
 printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
 printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
            
-
 0 |> ignore
