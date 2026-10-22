@@ -18,6 +18,7 @@ let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.Conditional
                            MutationCategory.Option
                            MutationCategory.ReturnListValue
+                           MutationCategory.ControlFlow
                            ]
 
 let parseSource (source: string) : ParsedInput =
@@ -686,3 +687,89 @@ let c = 1 = 2
     let sortedIds = ids |> List.sort
     Assert.True((sortedIds = ids))
     Assert.True((ids |> List.distinct |> List.length) = ids.Length)
+
+// --- ControlFlow mutation tests ---
+
+[<Fact>]
+let ``discover ConditionToNotCondition in simple if-then`` () =
+    let source = """
+module TestModule
+let check x =
+    if x > 0 then
+        1
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
+    Assert.Single conditionToNot
+
+[<Fact>]
+let ``discover ConditionToNotCondition in if-then-else`` () =
+    let source = """
+module TestModule
+let check x =
+    if x > 0 then
+        1
+    else
+        0
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
+    Assert.Single conditionToNot
+
+[<Fact>]
+let ``discover NotConditionToCondition in negated if`` () =
+    let source = """
+module TestModule
+let check x =
+    if not (x > 0) then
+        1
+    else
+        0
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let notConditionToCondition = candidates |> List.filter (fun c -> c.Kind = MutationKind.NotConditionToCondition)
+    Assert.Single notConditionToCondition
+
+[<Fact>]
+let ``discover ConditionToNotCondition in nested if`` () =
+    let source = """
+module TestModule
+let check x y =
+    if x > 0 then
+        if y > 0 then
+            1
+        else
+            0
+    else
+        -1
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
+    Assert.Equal(2, conditionToNot.Length)
+
+[<Fact>]
+let ``discover both ConditionToNotCondition and NotConditionToCondition`` () =
+    let source = """
+module TestModule
+let check x y =
+    if x > 0 then
+        if not (y > 0) then
+            1
+        else
+            0
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
+    let notConditionToCondition = candidates |> List.filter (fun c -> c.Kind = MutationKind.NotConditionToCondition)
+    Assert.Single conditionToNot |> ignore
+    Assert.Single notConditionToCondition

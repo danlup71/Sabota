@@ -132,6 +132,18 @@ let getDefinition = function
           Description = "List expression replaced with empty list."
           SurvivorInterpretation = "The tests did not detect that a list return value was changed to an empty list." }
 
+    | MutationTypes.MutationKind.ConditionToNotCondition -> 
+        { Original = "if condition then"
+          Replacement = "if not condition then"
+          Description = "If condition negated with 'not'."
+          SurvivorInterpretation = "The tests did not detect that an if condition was negated." }
+
+    | MutationTypes.MutationKind.NotConditionToCondition -> 
+        { Original = "if not condition then"
+          Replacement = "if condition then"
+          Description = "Negated if condition removed 'not'."
+          SurvivorInterpretation = "The tests did not detect that a negated if condition had its negation removed." }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind

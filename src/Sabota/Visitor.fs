@@ -63,6 +63,17 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
             | _ -> false
         | _ -> false
 
+    let isNotIdent (expr: SynExpr) : bool =
+        match expr with
+        | SynExpr.Ident(ident) -> ident.idText = "not"
+        | SynExpr.LongIdent(longDotId = synLongIdent) ->
+            let names = synLongIdent.LongIdent |> List.map _.idText
+            match names with
+            | [ "not" ] -> true
+            | _ :: [ "not" ] -> true
+            | _ -> false
+        | _ -> false
+
     let discoverMutations (expr: SynExpr) =
         match expr with
         | SynExpr.App(funcExpr = f; range = r) when isSomeIdent f && isEnabled SomeToNone ->
@@ -138,7 +149,18 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
                                                     analyzeExpr e1
                                                     analyzeExpr e2
         | SynExpr.IfThenElse(ifExpr = e1; thenExpr = e2; elseExpr = e3Opt) ->
-                                                    analyzeExpr e1
+                                                    // Check if condition is negated with "not"
+                                                    match e1 with
+                                                    | SynExpr.App(funcExpr = f; argExpr = arg; range = r) when isNotIdent f && isEnabled ConditionToNotCondition ->
+                                                        // Condition is "not (something)" - can remove the "not"
+                                                        tryAddMutationCandidate NotConditionToCondition r
+                                                        analyzeExpr f
+                                                        analyzeExpr arg
+                                                    | _ ->
+                                                        // Condition is not negated - can add "not"
+                                                        if isEnabled ConditionToNotCondition then
+                                                            tryAddMutationCandidate ConditionToNotCondition e1.Range
+                                                        analyzeExpr e1
                                                     analyzeExpr e2
                                                     e3Opt |> Option.iter analyzeExpr
         | SynExpr.LongIdentSet(expr = e) -> analyzeExpr e
@@ -199,7 +221,7 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
     and visitMemberDefn (defn: SynMemberDefn) =
         match defn with
         | SynMemberDefn.Member(memberDefn = b) -> visitBinding b
-        | SynMemberDefn.LetBindings(bindings = bs) -> bs |> List.iter visitBinding
+        | SynMemberDefn.LetBindings(bindings = bs; trivia = _) -> bs |> List.iter visitBinding
         | SynMemberDefn.AutoProperty(synExpr = e) -> analyzeExpr e
         | SynMemberDefn.Interface(members = Some ms) -> ms |> List.iter visitMemberDefn
         | SynMemberDefn.NestedType(typeDefn = typeDefn) -> visitTypeDefn typeDefn
@@ -213,7 +235,7 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
 
     and visitDecl (decl: SynModuleDecl) =
         match decl with
-        | SynModuleDecl.Let(bindings = bs) -> bs |> List.iter visitBinding
+        | SynModuleDecl.Let(bindings = bs; trivia = _) -> bs |> List.iter visitBinding
         | SynModuleDecl.Expr(expr = e) -> analyzeExpr e
         | SynModuleDecl.NestedModule(decls = decls) -> decls |> List.iter visitDecl
         | SynModuleDecl.Types(typeDefns = typeDefns) -> typeDefns |> List.iter visitTypeDefn

@@ -52,6 +52,8 @@ let mutationKindLabel (kind: MutationKind) : string =
     | OrToAnd -> "|| -> &&"
     | SomeToNone -> "Some -> None"
     | ReturnListValueToEmpty -> "[...] -> []"
+    | ConditionToNotCondition -> "if c -> if not c"
+    | NotConditionToCondition -> "if not c -> if c"
 
 /// Get the CSS class for a mutation status
 let statusClass (status: MutationStatus) : string =
@@ -458,22 +460,56 @@ let generatePreviewOriginal (source: string) (range: FSharp.Compiler.Text.Range)
 
 /// Generate a code snippet with the mutation highlighted in red bold using ANSI escape codes
 /// The mutated token is wrapped in \x1b[1;31m (bold red) and \x1b[0m (reset)
+/// Uses the Range to extract the actual original text from the source and replace it with the mutation.
 let generatePreviewMutated (source: string) (range: FSharp.Compiler.Text.Range) (original: string) (mutated: string) : string =
-    let currentLine = range.StartLine
-    let prevLine = getLine source (currentLine - 1)
-    let current = getLine source currentLine
-    let nextLine = getLine source (currentLine + 1)
-
+    let lines = source.Split('\n')
     let redBold = "\x1b[1;31m"
     let reset = "\x1b[0m"
 
-    // Replace the original token with the highlighted mutated token on the current line
-    let highlightedCurrent = current.Replace(original, $"{redBold}{mutated}{reset}")
+    // FSharp.Compiler.Text range: StartLine/StartColumn are 1-based inclusive,
+    // EndLine/EndColumn are 1-based exclusive.
+    let startLine = range.StartLine - 1
+    let startCol = range.StartColumn - 1
+    let endLine = range.EndLine - 1
+    let endCol = range.EndColumn
+
+    let highlightedMutated = $"{redBold}{mutated}{reset}"
+
+    // Build the mutated source by replacing the range with the highlighted mutation
+    let sb = System.Text.StringBuilder()
+
+    // lines before the range
+    for i in 0 .. startLine - 1 do
+        sb.Append(lines[i]).Append('\n') |> ignore
+
+    if startLine = endLine then
+        // single-line replacement
+        let line = lines[startLine]
+        let before = if startCol > 0 then line.Substring(0, startCol) else ""
+        let after = if endCol < line.Length then line.Substring(endCol) else ""
+        sb.Append(before).Append(highlightedMutated).Append(after).Append('\n') |> ignore
+    else
+        // multi-line replacement
+        let startLineText = lines[startLine]
+        let before = if startCol > 0 then startLineText.Substring(0, startCol) else ""
+        sb.Append(before).Append(highlightedMutated).Append('\n') |> ignore
+
+    // lines after the range
+    for i in endLine + 1 .. lines.Length - 1 do
+        sb.Append(lines[i]).Append('\n') |> ignore
+
+    let mutatedSource = sb.ToString()
+
+    // Now generate the preview snippet from the mutated source, centered on the start line
+    let currentLine = range.StartLine
+    let prevLine = getLine mutatedSource (currentLine - 1)
+    let current = getLine mutatedSource currentLine
+    let nextLine = getLine mutatedSource (currentLine + 1)
 
     let parts =
         [
             if prevLine <> "" then $"    {prevLine}"
-            $"  > {highlightedCurrent}"
+            $"  > {current}"
             if nextLine <> "" then $"    {nextLine}"
         ]
     String.concat "\n" parts

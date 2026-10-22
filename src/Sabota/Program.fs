@@ -76,6 +76,7 @@ let processFile (file : string) (workSolutionDir : string) (workTestPrj : string
                                // MutationCategory.Conditional
                                MutationCategory.Option
                                MutationCategory.ReturnListValue
+                               MutationCategory.ControlFlow
                                 ]
     
     printfn "detect mutation candidates"

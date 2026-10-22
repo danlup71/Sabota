@@ -29,7 +29,9 @@ let getAllMutationKinds () : MutationKind list =
       AndToOr
       OrToAnd
       SomeToNone
-      ReturnListValueToEmpty ]
+      ReturnListValueToEmpty
+      ConditionToNotCondition
+      NotConditionToCondition ]
 
 // Enumerate all implemented mutation categories explicitly
 // If a new category is added to MutationTypes but forgotten here, the count test will fail
@@ -41,7 +43,8 @@ let getAllMutationCategories () : MutationCategory list =
       Arithmetic
       Conditional
       Option
-      ReturnListValue ]
+      ReturnListValue
+      ControlFlow ]
 
 [<Fact>]
 let ``all mutation kinds have a category mapping`` () =

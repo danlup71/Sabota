@@ -9,6 +9,7 @@ type MutationCategory =
     | Conditional
     | Option
     | ReturnListValue
+    | ControlFlow
 
 type MutationKind =
 
@@ -50,8 +51,8 @@ type MutationKind =
     | ReturnListValueToEmpty
 
     // -------------------- ControlFlow
-// if (condition) -> if (not condition)
-// if (not condition) -> if (condition)
+    | ConditionToNotCondition
+    | NotConditionToCondition
 
     
 let getCategory = function
@@ -90,6 +91,10 @@ let getCategory = function
 
     | ReturnListValueToEmpty ->
         ReturnListValue
+
+    | ConditionToNotCondition
+    | NotConditionToCondition ->
+        ControlFlow
 
     
     
