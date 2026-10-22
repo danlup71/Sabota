@@ -29,24 +29,24 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
     
     let checkIdent (names: string list) (r: range) =
         match names with
-        | [ "op_Equality" ] | [ "=" ] -> tryAddMutationCandidate EqualityToInequality r
-        | [ "op_Inequality" ] | [ "<>" ] -> tryAddMutationCandidate InequalityToEquality r
-        | [ "op_GreaterThan" ] | [ ">" ] -> 
+        | [ "op_Equality" ] | _ :: [ "op_Equality" ] | [ "=" ] -> tryAddMutationCandidate EqualityToInequality r
+        | [ "op_Inequality" ] | _ :: [ "op_Inequality" ] | [ "<>" ] -> tryAddMutationCandidate InequalityToEquality r
+        | [ "op_GreaterThan" ] | _ :: [ "op_GreaterThan" ] | [ ">" ] -> 
             tryAddMutationCandidate GreaterToGreaterOrEqual r
             tryAddMutationCandidate GreaterToLess r
             tryAddMutationCandidate GreaterToLessOrEqual r
-        | [ "op_GreaterThanOrEqual" ] | [ ">=" ] -> tryAddMutationCandidate GreaterOrEqualToGreater r
-        | [ "op_LessThan" ] | [ "<" ] -> 
+        | [ "op_GreaterThanOrEqual" ] | _ :: [ "op_GreaterThanOrEqual" ] | [ ">=" ] -> tryAddMutationCandidate GreaterOrEqualToGreater r
+        | [ "op_LessThan" ] | _ :: [ "op_LessThan" ] | [ "<" ] -> 
             tryAddMutationCandidate LessToLessOrEqual r
             tryAddMutationCandidate LessToGreater r
             tryAddMutationCandidate LessToGreaterOrEqual r
-        | [ "op_LessThanOrEqual" ] | [ "<=" ] -> tryAddMutationCandidate LessOrEqualToLess r
-        | [ "op_Addition" ] | [ "+" ] -> tryAddMutationCandidate PlusToMinus r
-        | [ "op_Subtraction" ] | [ "-" ] -> tryAddMutationCandidate MinusToPlus r
-        | [ "op_Multiply" ] | [ "*" ] -> tryAddMutationCandidate TimesToDivide r
-        | [ "op_Divide" ] | [ "op_Division" ] | [ "/" ] -> tryAddMutationCandidate DivideToTimes r
-        | [ "op_BooleanAnd" ] | [ "&&" ] -> tryAddMutationCandidate AndToOr r
-        | [ "op_BooleanOr" ] | [ "||" ] -> tryAddMutationCandidate OrToAnd r
+        | [ "op_LessThanOrEqual" ] | _ :: [ "op_LessThanOrEqual" ] | [ "<=" ] -> tryAddMutationCandidate LessOrEqualToLess r
+        | [ "op_Addition" ] | _ :: [ "op_Addition" ] | [ "+" ] -> tryAddMutationCandidate PlusToMinus r
+        | [ "op_Subtraction" ] | _ :: [ "op_Subtraction" ] | [ "-" ] -> tryAddMutationCandidate MinusToPlus r
+        | [ "op_Multiply" ] | _ :: [ "op_Multiply" ] | [ "*" ] -> tryAddMutationCandidate TimesToDivide r
+        | [ "op_Divide" ] | _ :: [ "op_Divide" ] | [ "op_Division" ] | _ :: [ "op_Division" ] | [ "/" ] -> tryAddMutationCandidate DivideToTimes r
+        | [ "op_BooleanAnd" ] | _ :: [ "op_BooleanAnd" ] | [ "&&" ] -> tryAddMutationCandidate AndToOr r
+        | [ "op_BooleanOr" ] | _ :: [ "op_BooleanOr" ] | [ "||" ] -> tryAddMutationCandidate OrToAnd r
         | [ "Some" ] | _ :: [ "Some" ] -> tryAddMutationCandidate SomeToNone r
         | [ "true" ] -> tryAddMutationCandidate TrueToFalse r
         | [ "false" ] -> tryAddMutationCandidate FalseToTrue r

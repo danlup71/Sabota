@@ -554,6 +554,56 @@ let setEmail f email = { f with value = Option.Some email }
     let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
     Assert.Single someToNone
 
+// --- Qualified operator tests ---
+
+[<Fact>]
+let ``discover PlusToMinus with qualified LanguagePrimitives.op_Addition`` () =
+    let source = """
+module TestModule
+let add x y = LanguagePrimitives.op_Addition(x, y)
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
+    Assert.Single plusToMinus
+
+[<Fact>]
+let ``discover AndToOr with qualified LanguagePrimitives.op_BooleanAnd`` () =
+    let source = """
+module TestModule
+let check x y = LanguagePrimitives.op_BooleanAnd(x, y)
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
+    Assert.Single andToOr
+
+[<Fact>]
+let ``discover GreaterToLess with qualified LanguagePrimitives.op_GreaterThan`` () =
+    let source = """
+module TestModule
+let check x y = LanguagePrimitives.op_GreaterThan(x, y)
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let greaterToLess = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
+    Assert.Single greaterToLess
+
+[<Fact>]
+let ``discover TrueToFalse with qualified bool true`` () =
+    let source = """
+module TestModule
+let flag = bool true
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
+    Assert.Single trueToFalse
+
 // --- Edge cases ---
 
 [<Fact>]
