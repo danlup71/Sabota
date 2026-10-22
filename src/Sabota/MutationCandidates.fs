@@ -1,4 +1,6 @@
-﻿module Mutant1.MutationCandidates
+﻿module Sabota.MutationCandidates
+
+open Sabota.MutationTypes
 
 type MutationId = int
 

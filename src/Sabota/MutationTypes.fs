@@ -1,6 +1,44 @@
-﻿namespace Mutant1
+﻿module Sabota.MutationTypes
 
-(*
+type MutationCategory =
+    | Equality
+    | RelationalBoundary
+    | RelationalReversal
+    | Boolean
+    | Arithmetic
+
+type MutationKind =
+    | EqualityToInequality
+    | InequalityToEquality
+    | TrueToFalse
+    | FalseToTrue
+    | GreaterToGreaterOrEqual
+    | GreaterOrEqualToGreater
+    | LessToLessOrEqual
+    | LessOrEqualToLess    
+    
+let getCategory = function
+    | EqualityToInequality
+    | InequalityToEquality ->
+        Equality
+
+    | TrueToFalse
+    | FalseToTrue ->
+        Boolean
+
+    | GreaterToGreaterOrEqual
+    | GreaterOrEqualToGreater
+    | LessToLessOrEqual
+    | LessOrEqualToLess ->
+        RelationalBoundary
+
+    // | GreaterToLess
+    // | GreaterToLessOrEqual
+    // | LessToGreater
+    // | LessToGreaterOrEqual ->
+    //     RelationalReversal
+    
+    (*
 
 -------------------- EASY
 =    -> <>
@@ -37,15 +75,4 @@ Some x -> None
 if (condition) -> if (!condition)
 
 *)
-
-type MutationKind =
-    | EqualityToInequality
-    | InequalityToEquality
-    | TrueToFalse
-    | FalseToTrue
-    | GreaterToGreaterOrEqual
-    | GreaterOrEqualToGreater
-    | LessToLessOrEqual
-    | LessOrEqualToLess    
-    
     

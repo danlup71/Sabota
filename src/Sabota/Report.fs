@@ -1,7 +1,8 @@
-﻿module Mutant1.Report
+﻿module Sabota.Report
 
 open System
 open System.IO
+open Sabota.MutationTypes
 
 type MutationStatus =
     | Killed

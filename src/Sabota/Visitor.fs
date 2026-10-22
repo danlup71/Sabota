@@ -1,9 +1,10 @@
-﻿module Mutant1.Visitor
+﻿module Sabota.Visitor
 
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
-open Mutant1.MutationCandidates
+open Sabota.MutationCandidates
+open Sabota.MutationTypes
 
 // TODO danlup after prototyping refactor out with a proper algorithm 
 

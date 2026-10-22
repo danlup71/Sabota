@@ -2,13 +2,13 @@ module Tests._002_DiscoverMutation
 
 open System
 open System.IO
+open Sabota.MutationTypes
 open Xunit
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
-open Mutant1
-open Mutant1.MutationCandidates
-open Mutant1.Visitor
+open Sabota.MutationCandidates
+open Sabota.Visitor
 
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()

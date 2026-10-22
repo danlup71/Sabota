@@ -2,15 +2,15 @@ module Tests._003_IndependentMutation
 
 open System
 open System.IO
+open Sabota.MutationTypes
 open Xunit
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
-open Mutant1
-open Mutant1.MutationCandidates
+open Sabota.MutationCandidates
 open FSharp.Compiler.Syntax
-open Mutant1.MuationDefinitions
-open Mutant1.Visitor
-open Mutant1.Files
+open Sabota.MuationDefinitions
+open Sabota.Visitor
+open Sabota.Files
 
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()

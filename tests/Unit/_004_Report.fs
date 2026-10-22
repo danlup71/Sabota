@@ -6,11 +6,11 @@ open Xunit
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
-open Mutant1
-open Mutant1.MutationCandidates
-open Mutant1.Visitor
-open Mutant1.MuationDefinitions
-open Mutant1.Report
+open Sabota.MutationTypes
+open Sabota.MutationCandidates
+open Sabota.Visitor
+open Sabota.MuationDefinitions
+open Sabota.Report
 
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()

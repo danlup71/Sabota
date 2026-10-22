@@ -1,12 +1,12 @@
 open System
 open System.IO
 open FSharp.Compiler.CodeAnalysis
-open Mutant1.Args
-open Mutant1.Files
-open Mutant1.MuationDefinitions
-open Mutant1.MutationCandidates
-open Mutant1.Visitor
-open Mutant1.Report
+open Sabota.Args
+open Sabota.Files
+open Sabota.MuationDefinitions
+open Sabota.MutationCandidates
+open Sabota.Visitor
+open Sabota.Report
 
 let createMutationResult (candidate: MutationCandidate) (source: string) (outcome: MutationOutcome) =
     {

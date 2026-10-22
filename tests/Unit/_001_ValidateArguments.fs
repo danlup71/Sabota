@@ -3,7 +3,7 @@ module Tests._001_ValidateArguments
 open System
 open System.IO
 open Xunit
-open Mutant1.Args
+open Sabota.Args
 
 [<Fact>]
 let ``parseArgs with -t -s -f returns Ok with File target`` () =

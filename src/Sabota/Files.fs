@@ -1,8 +1,8 @@
-module Mutant1.Files
+module Sabota.Files
 
 open System
 open System.IO
-open Mutant1.MutationCandidates
+open Sabota.MutationCandidates
 
 let printfnColor (color: ConsoleColor) text : 'a =
     Console.ForegroundColor <- color

@@ -1,6 +1,6 @@
-﻿module Mutant1.MuationDefinitions
+﻿module Sabota.MuationDefinitions
 
-open Mutant1.MutationCandidates
+open Sabota.MutationCandidates
 
 
 type MutationDefinition =
@@ -11,51 +11,50 @@ type MutationDefinition =
         SurvivorInterpretation : string
     }
 
-let getDefinition (kind:Mutant1.MutationKind) =
-    match kind with
-    | EqualityToInequality ->
+let getDefinition = function 
+    | MutationTypes.MutationKind.EqualityToInequality ->
         { Original = "="
           Replacement = "<>"
           Description = "Equality replaced with inequality."
           SurvivorInterpretation = "The tests did not detect that an equality check was inverted." }
 
-    | InequalityToEquality ->
+    | MutationTypes.MutationKind.InequalityToEquality ->
         { Original = "<>"
           Replacement = "="
           Description = "Inequality replaced with equality."
           SurvivorInterpretation = "The tests did not detect that an inequality check was inverted." }
 
-    | TrueToFalse ->
+    | MutationTypes.MutationKind.TrueToFalse ->
         { Original = "true"
           Replacement = "false"
           Description = "Boolean true replaced with false."
           SurvivorInterpretation = "The tests did not detect that a true literal was changed to false." }
 
-    | FalseToTrue ->
+    | MutationTypes.MutationKind.FalseToTrue ->
         { Original = "false"
           Replacement = "true"
           Description = "Boolean false replaced with true."
           SurvivorInterpretation = "The tests did not detect that a false literal was changed to true." }
         
-    | GreaterToGreaterOrEqual -> 
+    | MutationTypes.MutationKind.GreaterToGreaterOrEqual -> 
         { Original = ">"
           Replacement = ">="
           Description = "Greater-than replaced with greater-than-or-equal."
           SurvivorInterpretation = "The tests did not detect that a strict greater-than comparison was relaxed to include equality." }
         
-    | GreaterOrEqualToGreater -> 
+    | MutationTypes.MutationKind.GreaterOrEqualToGreater -> 
         { Original = ">="
           Replacement = ">"
           Description = "Greater-than-or-equal replaced with greater-than."
           SurvivorInterpretation = "The tests did not detect that an inclusive greater-than-or-equal comparison was made strict." }
         
-    | LessToLessOrEqual -> 
+    | MutationTypes.MutationKind.LessToLessOrEqual -> 
         { Original = "<"
           Replacement = "<="
           Description = "Less-than replaced with less-than-or-equal."
           SurvivorInterpretation = "The tests did not detect that a strict less-than comparison was relaxed to include equality." }
         
-    | LessOrEqualToLess -> 
+    | MutationTypes.MutationKind.LessOrEqualToLess -> 
         { Original = "<="
           Replacement = "<"
           Description = "Less-than-or-equal replaced with less-than."
