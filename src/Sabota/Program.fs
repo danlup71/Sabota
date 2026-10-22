@@ -5,6 +5,7 @@ open Sabota.Args
 open Sabota.Files
 open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
+open Sabota.MutationTypes
 open Sabota.Visitor
 open Sabota.Report
 
@@ -66,17 +67,22 @@ let processFile (file : string) (workSolutionDir : string) (workTestPrj : string
             parsingOptions)
         |> Async.RunSynchronously
 
+    let mutationCategories = [ MutationCategory.Equality
+                               MutationCategory.RelationalBoundary
+                               MutationCategory.RelationalReversal
+                               MutationCategory.Boolean
+                               MutationCategory.Arithmetic
+                                ]
+    
     printfn "detect mutation candidates"
 
-    let candidates = findMutationCandidates file parseResult.ParseTree |> List.map enrich
+    let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
 
     // Map the candidate file to the work folder (relative to solution root)
     let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
 
     let results =
         candidates
-        // |> List.filter enabledByConfiguration // TODO danlup will filter eventually
-        // |> List.map getDefinition        
         |> List.map (fun candidate ->
             // Apply mutation to the COPY in the work folder
             let workCandidate = { candidate with File = workFile }

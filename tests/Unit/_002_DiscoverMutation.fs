@@ -10,6 +10,13 @@ open FSharp.Compiler.Syntax
 open Sabota.MutationCandidates
 open Sabota.Visitor
 
+let mutationCategories = [ MutationCategory.Equality
+                           MutationCategory.RelationalBoundary
+                           MutationCategory.RelationalReversal
+                           MutationCategory.Boolean
+                           MutationCategory.Arithmetic
+                           ]
+
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()
     let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
@@ -36,7 +43,7 @@ module TestModule
 let flag = true
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     Assert.Single trueToFalse
@@ -48,7 +55,7 @@ module TestModule
 let flag = false
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
     Assert.Single falseToTrue
@@ -64,7 +71,7 @@ let check x =
         false
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
@@ -80,7 +87,7 @@ module TestModule
 let isEqual x y = x = y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
     Assert.Single eqToIn
@@ -92,7 +99,7 @@ module TestModule
 let isNotEqual x y = x <> y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let ineqToEq = candidates |> List.filter (fun c -> c.Kind = MutationKind.InequalityToEquality)
     Assert.Single ineqToEq
@@ -104,7 +111,7 @@ module TestModule
 let isGreater x y = x > y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToGreaterOrEqual)
     Assert.Single gt
@@ -116,7 +123,7 @@ module TestModule
 let isGreaterOrEqual x y = x >= y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let gte = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterOrEqualToGreater)
     Assert.Single gte
@@ -128,7 +135,7 @@ module TestModule
 let isLess x y = x < y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToLessOrEqual)
     Assert.Single lt
@@ -140,7 +147,7 @@ module TestModule
 let isLessOrEqual x y = x <= y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let lte = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessOrEqualToLess)
     Assert.Single lte
@@ -154,7 +161,7 @@ module TestModule
 let isGreater x y = x > y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
     Assert.Single gt
@@ -166,7 +173,7 @@ module TestModule
 let isGreater x y = x > y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLessOrEqual)
     Assert.Single gt
@@ -178,7 +185,7 @@ module TestModule
 let isLess x y = x < y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
     Assert.Single lt
@@ -190,7 +197,7 @@ module TestModule
 let isLess x y = x < y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreaterOrEqual)
     Assert.Single lt
@@ -202,7 +209,7 @@ module TestModule
 let isGreater x y = x > y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let greaterToGreaterOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToGreaterOrEqual)
     let greaterToLess = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
@@ -219,7 +226,7 @@ module TestModule
 let isLess x y = x < y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let lessToLessOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToLessOrEqual)
     let lessToGreater = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
@@ -244,7 +251,7 @@ let compare x y =
         true
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
     let ineqToEq = candidates |> List.filter (fun c -> c.Kind = MutationKind.InequalityToEquality)
@@ -263,7 +270,7 @@ module TestModule
 let result = 1 = 2
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
     Assert.Single eqToIn
@@ -277,7 +284,7 @@ let y = 2
 printfn "%b" (x = y)
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
     Assert.Single eqToIn
@@ -292,7 +299,7 @@ module Nested =
     let flag = true
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     Assert.Single trueToFalse
@@ -308,7 +315,7 @@ type MyClass() =
         if x = y then true else false
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
@@ -327,7 +334,7 @@ type MyClass() =
     member this.GetFlag() = internalFlag
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
     Assert.Single falseToTrue
@@ -340,7 +347,7 @@ type Config() =
     member val Enabled = true with get, set
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     Assert.Single trueToFalse
@@ -354,7 +361,7 @@ module TestModule
 let add x y = x + y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
     Assert.Single plusToMinus
@@ -366,7 +373,7 @@ module TestModule
 let subtract x y = x - y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
     Assert.Single minusToPlus
@@ -378,7 +385,7 @@ module TestModule
 let multiply x y = x * y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let timesToDivide = candidates |> List.filter (fun c -> c.Kind = MutationKind.TimesToDivide)
     Assert.Single timesToDivide
@@ -390,7 +397,7 @@ module TestModule
 let divide x y = x / y
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let divideToTimes = candidates |> List.filter (fun c -> c.Kind = MutationKind.DivideToTimes)
     Assert.Single divideToTimes
@@ -407,7 +414,7 @@ let calc x y =
     a + b + c + d
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
     let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
@@ -429,7 +436,7 @@ let x = 42
 let y = "hello"
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     Assert.Empty candidates
 
@@ -440,7 +447,7 @@ module TestModule
 let flag = true
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "customPath.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "customPath.fs" parsed
 
     Assert.True(candidates |> List.forall (fun c -> c.File = "customPath.fs"))
 
@@ -453,7 +460,7 @@ let b = false
 let c = 1 = 2
 """
     let parsed = parseSource source
-    let candidates = findMutationCandidates "test.fs" parsed
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
 
     let ids = candidates |> List.map (fun c -> c.Id)
     let sortedIds = ids |> List.sort

@@ -1,5 +1,6 @@
 ﻿module Sabota.Visitor
 
+open System.Linq
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
@@ -8,35 +9,44 @@ open Sabota.MutationTypes
 
 // TODO danlup after prototyping refactor out with a proper algorithm 
 
-let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationCandidate list =
+let findMutationCandidates mutationCategories  (file: string) (parsedInput: ParsedInput) : MutationCandidate list =
     let mutable nextId : MutationId = 1
     let mutable acc : MutationCandidate list = []
+    let enabledCategories : MutationCategory list = mutationCategories
 
-    let addMutation (kind: MutationKind) (r: range) =
+    let addCandidate (kind: MutationKind) (r: range) =
         let candidate = { Id = nextId; Kind = kind; File = file; Range = r; Original = ""; Replacement = ""; SurvivorInterpretation = "" }
         nextId <- nextId + 1
         acc <- candidate :: acc
 
+    let isEnabled (kind: MutationKind) =
+        getCategory kind
+        |> enabledCategories.Contains 
+        
+    let tryAddMutationCandidate kind range =
+        if isEnabled kind then
+            addCandidate kind range    
+    
     let checkIdent (names: string list) (r: range) =
         match names with
-        | [ "op_Equality" ] | [ "=" ] -> addMutation EqualityToInequality r
-        | [ "op_Inequality" ] | [ "<>" ] -> addMutation InequalityToEquality r
+        | [ "op_Equality" ] | [ "=" ] -> tryAddMutationCandidate EqualityToInequality r
+        | [ "op_Inequality" ] | [ "<>" ] -> tryAddMutationCandidate InequalityToEquality r
         | [ "op_GreaterThan" ] | [ ">" ] -> 
-            addMutation GreaterToGreaterOrEqual r
-            addMutation GreaterToLess r
-            addMutation GreaterToLessOrEqual r
-        | [ "op_GreaterThanOrEqual" ] | [ ">=" ] -> addMutation GreaterOrEqualToGreater r
+            tryAddMutationCandidate GreaterToGreaterOrEqual r
+            tryAddMutationCandidate GreaterToLess r
+            tryAddMutationCandidate GreaterToLessOrEqual r
+        | [ "op_GreaterThanOrEqual" ] | [ ">=" ] -> tryAddMutationCandidate GreaterOrEqualToGreater r
         | [ "op_LessThan" ] | [ "<" ] -> 
-            addMutation LessToLessOrEqual r
-            addMutation LessToGreater r
-            addMutation LessToGreaterOrEqual r
-        | [ "op_LessThanOrEqual" ] | [ "<=" ] -> addMutation LessOrEqualToLess r
-        | [ "op_Addition" ] | [ "+" ] -> addMutation PlusToMinus r
-        | [ "op_Subtraction" ] | [ "-" ] -> addMutation MinusToPlus r
-        | [ "op_Multiply" ] | [ "*" ] -> addMutation TimesToDivide r
-        | [ "op_Divide" ] | [ "op_Division" ] | [ "/" ] -> addMutation DivideToTimes r
-        | [ "true" ] -> addMutation TrueToFalse r
-        | [ "false" ] -> addMutation FalseToTrue r
+            tryAddMutationCandidate LessToLessOrEqual r
+            tryAddMutationCandidate LessToGreater r
+            tryAddMutationCandidate LessToGreaterOrEqual r
+        | [ "op_LessThanOrEqual" ] | [ "<=" ] -> tryAddMutationCandidate LessOrEqualToLess r
+        | [ "op_Addition" ] | [ "+" ] -> tryAddMutationCandidate PlusToMinus r
+        | [ "op_Subtraction" ] | [ "-" ] -> tryAddMutationCandidate MinusToPlus r
+        | [ "op_Multiply" ] | [ "*" ] -> tryAddMutationCandidate TimesToDivide r
+        | [ "op_Divide" ] | [ "op_Division" ] | [ "/" ] -> tryAddMutationCandidate DivideToTimes r
+        | [ "true" ] -> tryAddMutationCandidate TrueToFalse r
+        | [ "false" ] -> tryAddMutationCandidate FalseToTrue r
         | _ -> ()
 
     
@@ -46,8 +56,8 @@ let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationC
             let names = synLongIdent.LongIdent |> List.map _.idText
             checkIdent names m
         | SynExpr.Ident(ident) -> checkIdent [ ident.idText ] ident.idRange
-        | SynExpr.Const(constant = SynConst.Bool(true); range = r) -> addMutation TrueToFalse r
-        | SynExpr.Const(constant = SynConst.Bool(false); range = r) -> addMutation FalseToTrue r
+        | SynExpr.Const(constant = SynConst.Bool(true); range = r) -> tryAddMutationCandidate TrueToFalse r
+        | SynExpr.Const(constant = SynConst.Bool(false); range = r) -> tryAddMutationCandidate FalseToTrue r
         | _ -> ()
 
     let rec analyzeExpr (expr: SynExpr) =

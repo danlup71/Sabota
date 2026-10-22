@@ -12,6 +12,13 @@ open Sabota.MuationDefinitions
 open Sabota.Visitor
 open Sabota.Files
 
+let mutationCategories = [ MutationCategory.Equality
+                           MutationCategory.RelationalBoundary
+                           MutationCategory.RelationalReversal
+                           MutationCategory.Boolean
+                           MutationCategory.Arithmetic
+                           ]
+
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()
     let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
@@ -146,7 +153,7 @@ let ``applyMutation replaces true with false`` () =
 
     try
         let parsed = parseSource "let flag = true"
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
 
@@ -166,7 +173,7 @@ let ``applyMutation replaces false with true`` () =
 
     try
         let parsed = parseSource "let flag = false"
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.FalseToTrue)
         let enriched = enrich candidate
 
@@ -186,7 +193,7 @@ let ``applyMutation replaces = with <>`` () =
 
     try
         let parsed = parseSource "let isEqual x y = x = y"
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.EqualityToInequality)
         let enriched = enrich candidate
 
@@ -211,7 +218,7 @@ let ``applyMutation preserves surrounding code`` () =
 
     try
         let parsed = parseSource content
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
 
@@ -237,7 +244,7 @@ let ``each mutation is applied independently with file restore`` () =
 
     try
         let parsed = parseSource originalContent
-        let candidates = findMutationCandidates fileFs parsed |> List.map enrich
+        let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
         let workFolder = createWorkFolder ()
@@ -279,7 +286,7 @@ let ``mutations do not interfere with each other using file restore`` () =
 
     try
         let parsed = parseSource originalContent
-        let candidates = findMutationCandidates fileFs parsed |> List.map enrich
+        let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         let trueToFalse = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let falseToTrue = candidates |> List.find (fun c -> c.Kind = MutationKind.FalseToTrue)
@@ -334,7 +341,7 @@ let ``full cycle preserves original file across multiple mutations`` () =
 
     try
         let parsed = parseSource originalContent
-        let candidates = findMutationCandidates fileFs parsed |> List.map enrich
+        let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
         let workFolder = createWorkFolder ()
@@ -379,7 +386,7 @@ let ``each mutation only changes its target range with file restore`` () =
 
     try
         let parsed = parseSource originalContent
-        let candidates = findMutationCandidates fileFs parsed |> List.map enrich
+        let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
         let workFolder = createWorkFolder ()
@@ -474,7 +481,7 @@ let ``enrich fills Original and Replacement from MutationKind`` () =
 
     try
         let parsed = parseSource source
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
         Assert.Equal("true", enriched.Original)
@@ -492,7 +499,7 @@ let ``enrich preserves candidate metadata`` () =
 
     try
         let parsed = parseSource source
-        let candidates = findMutationCandidates fileFs parsed
+        let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.EqualityToInequality)
         let enriched = enrich candidate
         Assert.Equal(fileFs, enriched.File)

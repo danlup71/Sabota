@@ -12,6 +12,13 @@ open Sabota.Visitor
 open Sabota.MuationDefinitions
 open Sabota.Report
 
+let mutationCategories = [ MutationCategory.Equality
+                           MutationCategory.RelationalBoundary
+                           MutationCategory.RelationalReversal
+                           MutationCategory.Boolean
+                           MutationCategory.Arithmetic
+                           ]
+
 let parseSource (source: string) : ParsedInput =
     let checker = FSharpChecker.Create()
     let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
@@ -175,7 +182,7 @@ let y = 2
 
     try
         let parsed = parseSource source
-        let candidates = findMutationCandidates fileFs parsed |> List.map enrich
+        let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
 
         let outcome = { Status = Survived; Interpretation = "Tests did not detect the change." }
