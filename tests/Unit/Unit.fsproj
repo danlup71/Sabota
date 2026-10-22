@@ -10,6 +10,7 @@
         <Compile Include="_002_DiscoverMutation.fs" />
         <Compile Include="_003_IndependentMutation.fs" />
         <Compile Include="_004_Report.fs" />
+        <Compile Include="_005_MutationTypesConsistency.fs" />
     </ItemGroup>
 
     <ItemGroup>
