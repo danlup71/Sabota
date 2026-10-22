@@ -73,7 +73,7 @@ let stripAnsi (s: string) =
     System.Text.RegularExpressions.Regex.Replace(s, @"\x1b\[[0-9;]*m", "")
 
 /// Generate the full HTML report and write it to a file in the sabota_result folder
-let generateHtmlReport (results: MutationResult list) : string =
+let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) : string =
     let resultDir = "sabota_result"
     Directory.CreateDirectory(resultDir) |> ignore
 
@@ -91,6 +91,16 @@ let generateHtmlReport (results: MutationResult list) : string =
         else float killedCount / float total * 100.0
 
     let generatedDate = DateTime.Now.ToString("G")
+    let executionTimeStr = 
+        let hours = executionTime.Hours
+        let minutes = executionTime.Minutes
+        let seconds = executionTime.Seconds
+        if hours > 0 then
+            sprintf "%dh %dm %ds" hours minutes seconds
+        elif minutes > 0 then
+            sprintf "%dm %ds" minutes seconds
+        else
+            sprintf "%ds" seconds
 
     let rows =
         results
@@ -310,6 +320,8 @@ let generateHtmlReport (results: MutationResult list) : string =
         <h1>Sabota Mutation Report</h1>
         <div class="timestamp">Generated: """
 
+    let part3b = """ | Execution time: """
+
     let part4 = """</div>
         <div class="summary">
             <div class="summary-card total" data-filter="all">
@@ -404,7 +416,7 @@ let generateHtmlReport (results: MutationResult list) : string =
 </html>"""
 
     let header =
-        part1 + timestamp + part2 + css + part3 + generatedDate + part4
+        part1 + timestamp + part2 + css + part3 + generatedDate + part3b + executionTimeStr + part4
         + string total + part5 + string killedCount + part6
         + string survivedCount + part7 + string mutationScore + part8
         + buildFailedCard + part9

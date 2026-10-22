@@ -67,12 +67,13 @@ let processFile (file : string) (workSolutionDir : string) (workTestPrj : string
             parsingOptions)
         |> Async.RunSynchronously
 
-    let mutationCategories = [ MutationCategory.Equality
-                               MutationCategory.RelationalBoundary
-                               MutationCategory.RelationalReversal
-                               MutationCategory.Boolean
-                               MutationCategory.Arithmetic
-                               MutationCategory.Conditional
+    let mutationCategories = [
+                               // MutationCategory.Equality
+                               // MutationCategory.RelationalBoundary
+                               // MutationCategory.RelationalReversal
+                               // MutationCategory.Boolean
+                               // MutationCategory.Arithmetic
+                               // MutationCategory.Conditional
                                MutationCategory.Option
                                MutationCategory.ReturnListValue
                                 ]
@@ -123,9 +124,13 @@ let workFolder = createWorkFolder ()
 let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
 let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
 
+let startTime = DateTime.Now
+
 let result =
     files
     |> List.collect (fun file -> processFile file workSolutionDir workTestPrj)
+
+let executionTime = DateTime.Now - startTime
 
 // Clean up the work folder after all files are processed
 deleteWorkFolder workFolder
@@ -135,7 +140,7 @@ let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
 printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
 printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
 
-let reportPath = generateHtmlReport result
+let reportPath = generateHtmlReport result executionTime
 let forwardPath = reportPath.Replace("\\", "/")
 let linkTarget = sprintf "file:///%s" forwardPath
 let clickable = sprintf "\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\" linkTarget reportPath
