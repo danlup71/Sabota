@@ -74,7 +74,10 @@ let processFile (file : string) (workSolutionDir : string) (workTestPrj : string
     let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
 
     let results =
-        candidates |> List.map (fun candidate ->
+        candidates
+        // |> List.filter enabledByConfiguration // TODO danlup will filter eventually
+        // |> List.map getDefinition        
+        |> List.map (fun candidate ->
             // Apply mutation to the COPY in the work folder
             let workCandidate = { candidate with File = workFile }
             applyMutation workCandidate

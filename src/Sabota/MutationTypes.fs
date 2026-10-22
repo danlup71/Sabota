@@ -8,14 +8,51 @@ type MutationCategory =
     | Arithmetic
 
 type MutationKind =
+
+    // -------------------- Equality
     | EqualityToInequality
     | InequalityToEquality
+    
+    // -------------------- Boolean
     | TrueToFalse
     | FalseToTrue
+    
+    // -------------------- RelationalBoundary
     | GreaterToGreaterOrEqual
     | GreaterOrEqualToGreater
     | LessToLessOrEqual
     | LessOrEqualToLess    
+
+    // -------------------- RelationalReversal
+    | GreaterToLess
+    | GreaterToLessOrEqual
+    | LessToGreater
+    | LessToGreaterOrEqual
+
+
+    // -------------------- Arithmetic
+// | PlusToMinus
+// | MinusToPlus
+// | TimesToDivide
+// | DivideToTimes ->
+
+    // -------------------- Conditional
+// | AndToOr
+// | OrToAnd
+// | SomeToNone
+
+// && -> ||
+// || -> &&
+// Some x -> None
+
+    
+    // -------------------- ReturnValue
+// [] -> [dummy]
+// [x] -> []
+
+    // -------------------- ControlFlow
+// if (condition) -> if (!condition)
+
     
 let getCategory = function
     | EqualityToInequality
@@ -32,47 +69,5 @@ let getCategory = function
     | LessOrEqualToLess ->
         RelationalBoundary
 
-    // | GreaterToLess
-    // | GreaterToLessOrEqual
-    // | LessToGreater
-    // | LessToGreaterOrEqual ->
-    //     RelationalReversal
     
-    (*
-
--------------------- EASY
-=    -> <>
-<>   -> =
-
->    -> >=
->=   -> >
-<    -> <=
-<=   -> <
-
-true  -> false
-false -> true
-
-
--------------------- ARITHMETIC
-+ -> -
-- -> +
-* -> /
-/ -> *
-
-
--------------------- CONDITIONAL LOGIC
-&& -> ||
-|| -> &&
-
-Some x -> None
-
--------------------- RETURN VALUE
-[] -> [dummy]
-[x] -> []
-
-
--------------------- CONTROL FLOW
-if (condition) -> if (!condition)
-
-*)
     
