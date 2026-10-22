@@ -117,15 +117,25 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
 
             let cleanOriginalPreview = r.PreviewOriginal |> stripAnsi |> htmlEscape
             let cleanMutatedPreview =
-                r.PreviewMutated
-                |> stripAnsi
-                |> htmlEscape
-                |> (fun s ->
+                let mutated = r.PreviewMutated |> stripAnsi
+                // If the preview already contains HTML span tags (ControlFlow mutations),
+                // escape only the text content, preserving the span tags
+                if mutated.Contains("<span class=\"mutation-highlight\">") then
+                    let openPlaceholder = "\u0000HIGHLIGHT_OPEN\u0000"
+                    let closePlaceholder = "\u0000HIGHLIGHT_CLOSE\u0000"
+                    let withPlaceholders = mutated.Replace("<span class=\"mutation-highlight\">", openPlaceholder).Replace("</span>", closePlaceholder)
+                    let escaped = htmlEscape withPlaceholders
+                    let escapedOpen = htmlEscape openPlaceholder
+                    let escapedClose = htmlEscape closePlaceholder
+                    escaped.Replace(escapedOpen, "<span class=\"mutation-highlight\">").Replace(escapedClose, "</span>")
+                else
+                    // No span tags - escape everything and add highlight around mutated text
+                    let escaped = htmlEscape mutated
                     let escapedMutated = htmlEscape r.Mutated
-                    if r.Mutated <> "" && s.Contains(escapedMutated) then
+                    if r.Mutated <> "" && escaped.Contains(escapedMutated) then
                         let highlight = sprintf "<span class=\"mutation-highlight\">%s</span>" escapedMutated
-                        s.Replace(escapedMutated, highlight)
-                    else s)
+                        escaped.Replace(escapedMutated, highlight)
+                    else escaped
 
             let interpretationHtml =
                 if r.Outcome.Interpretation <> "" then
@@ -458,13 +468,21 @@ let generatePreviewOriginal (source: string) (range: FSharp.Compiler.Text.Range)
         ]
     String.concat "\n" parts
 
-/// Generate a code snippet with the mutation highlighted in red bold using ANSI escape codes
-/// The mutated token is wrapped in \x1b[1;31m (bold red) and \x1b[0m (reset)
+/// Extract the inner expression from a "not (X)" text
+let stripNotForPreview (text: string) : string =
+    let trimmed = text.Trim()
+    if trimmed.StartsWith("not (") && trimmed.EndsWith(")") then
+        trimmed.Substring(5, trimmed.Length - 6)
+    else
+        trimmed
+
+/// Generate a code snippet with the mutation highlighted using HTML span tags
+/// The mutated token is wrapped in <span class="mutation-highlight"> for red bold styling in the HTML report
 /// Uses the Range to extract the actual original text from the source and replace it with the mutation.
 let generatePreviewMutated (source: string) (range: FSharp.Compiler.Text.Range) (original: string) (mutated: string) : string =
     let lines = source.Split('\n')
-    let redBold = "\x1b[1;31m"
-    let reset = "\x1b[0m"
+    let redBold = "<span class=\"mutation-highlight\">"
+    let reset = "</span>"
 
     // FSharp.Compiler.Text range: StartLine/StartColumn are 1-based inclusive,
     // EndLine/EndColumn are 1-based exclusive.
@@ -473,7 +491,27 @@ let generatePreviewMutated (source: string) (range: FSharp.Compiler.Text.Range) 
     let endLine = range.EndLine - 1
     let endCol = range.EndColumn
 
-    let highlightedMutated = $"{redBold}{mutated}{reset}"
+    // Extract the actual source text at the range for ControlFlow mutations
+    let rangeText =
+        if startLine = endLine && startCol < lines[startLine].Length then
+            let len = min (endCol - startCol) (lines[startLine].Length - startCol)
+            if len > 0 then lines[startLine].Substring(startCol, len).Trim() else ""
+        else
+            ""
+
+    let highlightedMutated =
+        // For ControlFlow mutations, construct the replacement from the actual source text
+        // The F# parser includes the leading space after "if" in the condition's range,
+        // so we need to preserve that space in the replacement
+        // Only highlight the added/removed "not" keyword in red
+        if rangeText <> "" && original = "if condition then" then
+            // ConditionToNotCondition: highlight only "not" in red
+            $" {redBold}not{reset} ({rangeText})"
+        elif rangeText <> "" && original = "if not condition then" then
+            // NotConditionToCondition: highlight the stripped condition (where "not" was removed) in red
+            $" {redBold}{stripNotForPreview rangeText}{reset}"
+        else
+            $"{redBold}{mutated}{reset}"
 
     // Build the mutated source by replacing the range with the highlighted mutation
     let sb = System.Text.StringBuilder()

@@ -105,10 +105,18 @@ let restoreFile (originalFile: string) (workFile: string) : unit =
     if File.Exists originalFile && File.Exists workFile then
         File.Copy(originalFile, workFile, overwrite = true)
 
+/// Extract the inner expression from a "not (X)" text
+let stripNot (text: string) : string =
+    let trimmed = text.Trim()
+    if trimmed.StartsWith("not (") && trimmed.EndsWith(")") then
+        trimmed.Substring(5, trimmed.Length - 6)
+    else
+        trimmed
+
 let applyMutation (mutation: MutationCandidate) : unit =
     let filePath = mutation.File
     let r = mutation.Range
-    let replacement = mutation.Replacement
+    let mutable replacement = mutation.Replacement
 
     printf $"apply mutation {mutation.Kind,-20} {timestamp ()}"
 
@@ -159,6 +167,15 @@ let applyMutation (mutation: MutationCandidate) : unit =
         let trailingWhitespace =
             if trimmedEnd > 0 then rangeText.Substring(rangeText.Length - trimmedEnd, trimmedEnd)
             else ""
+
+        // For ControlFlow mutations, construct the replacement from the actual source text
+        if innerText <> "" then
+            match mutation.Kind with
+            | Sabota.MutationTypes.MutationKind.ConditionToNotCondition ->
+                replacement <- $"not ({innerText})"
+            | Sabota.MutationTypes.MutationKind.NotConditionToCondition ->
+                replacement <- stripNot innerText
+            | _ -> ()
 
         // Keep text before the range, then leading whitespace, replacement, trailing whitespace, then after
         let before = if startCol > 0 then line.Substring(0, startCol) else ""

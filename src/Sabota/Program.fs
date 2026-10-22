@@ -74,8 +74,8 @@ let processFile (file : string) (workSolutionDir : string) (workTestPrj : string
                                // MutationCategory.Boolean
                                // MutationCategory.Arithmetic
                                // MutationCategory.Conditional
-                               MutationCategory.Option
-                               MutationCategory.ReturnListValue
+                               // MutationCategory.Option
+                               // MutationCategory.ReturnListValue
                                MutationCategory.ControlFlow
                                 ]
     
