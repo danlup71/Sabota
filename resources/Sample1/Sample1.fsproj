@@ -11,4 +11,8 @@
         <Compile Include="Sample3.fs" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Update="FSharp.Core" Version="10.1.402" />
+    </ItemGroup>
+
 </Project>

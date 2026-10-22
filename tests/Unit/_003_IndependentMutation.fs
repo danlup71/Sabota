@@ -409,7 +409,7 @@ let ``each mutation only changes its target range with file restore`` () =
                     |> List.filter (fun (i, line) ->
                         i < mutatedLines.Length && mutatedLines.[i] <> line)
 
-                Assert.Single changedLines
+                Assert.Single changedLines |> ignore
 
                 // Restore original for next mutation
                 restoreFile fileFs workFile
