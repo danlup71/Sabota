@@ -60,6 +60,30 @@ let getDefinition = function
           Description = "Less-than-or-equal replaced with less-than."
           SurvivorInterpretation = "The tests did not detect that an inclusive less-than-or-equal comparison was made strict." }
 
+    | MutationTypes.MutationKind.GreaterToLess -> 
+        { Original = ">"
+          Replacement = "<"
+          Description = "Greater-than replaced with less-than."
+          SurvivorInterpretation = "The tests did not detect that a greater-than comparison was reversed to less-than." }
+
+    | MutationTypes.MutationKind.GreaterToLessOrEqual -> 
+        { Original = ">"
+          Replacement = "<="
+          Description = "Greater-than replaced with less-than-or-equal."
+          SurvivorInterpretation = "The tests did not detect that a greater-than comparison was reversed to less-than-or-equal." }
+
+    | MutationTypes.MutationKind.LessToGreater -> 
+        { Original = "<"
+          Replacement = ">"
+          Description = "Less-than replaced with greater-than."
+          SurvivorInterpretation = "The tests did not detect that a less-than comparison was reversed to greater-than." }
+
+    | MutationTypes.MutationKind.LessToGreaterOrEqual -> 
+        { Original = "<"
+          Replacement = ">="
+          Description = "Less-than replaced with greater-than-or-equal."
+          SurvivorInterpretation = "The tests did not detect that a less-than comparison was reversed to greater-than-or-equal." }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind

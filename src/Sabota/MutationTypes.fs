@@ -69,5 +69,11 @@ let getCategory = function
     | LessOrEqualToLess ->
         RelationalBoundary
 
+    | GreaterToLess
+    | GreaterToLessOrEqual
+    | LessToGreater
+    | LessToGreaterOrEqual ->
+        RelationalReversal
+
     
     

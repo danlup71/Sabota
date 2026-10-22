@@ -145,6 +145,90 @@ let isLessOrEqual x y = x <= y
     let lte = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessOrEqualToLess)
     Assert.Single lte
 
+// --- RelationalReversal mutation tests ---
+
+[<Fact>]
+let ``discover GreaterToLess mutation for > operator`` () =
+    let source = """
+module TestModule
+let isGreater x y = x > y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
+    Assert.Single gt
+
+[<Fact>]
+let ``discover GreaterToLessOrEqual mutation for > operator`` () =
+    let source = """
+module TestModule
+let isGreater x y = x > y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLessOrEqual)
+    Assert.Single gt
+
+[<Fact>]
+let ``discover LessToGreater mutation for < operator`` () =
+    let source = """
+module TestModule
+let isLess x y = x < y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
+    Assert.Single lt
+
+[<Fact>]
+let ``discover LessToGreaterOrEqual mutation for < operator`` () =
+    let source = """
+module TestModule
+let isLess x y = x < y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreaterOrEqual)
+    Assert.Single lt
+
+[<Fact>]
+let ``discover all 3 mutation candidates for > operator`` () =
+    let source = """
+module TestModule
+let isGreater x y = x > y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let greaterToGreaterOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToGreaterOrEqual)
+    let greaterToLess = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
+    let greaterToLessOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLessOrEqual)
+
+    Assert.Single greaterToGreaterOrEqual |> ignore
+    Assert.Single greaterToLess |> ignore
+    Assert.Single greaterToLessOrEqual
+
+[<Fact>]
+let ``discover all 3 mutation candidates for < operator`` () =
+    let source = """
+module TestModule
+let isLess x y = x < y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let lessToLessOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToLessOrEqual)
+    let lessToGreater = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
+    let lessToGreaterOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreaterOrEqual)
+
+    Assert.Single lessToLessOrEqual |> ignore
+    Assert.Single lessToGreater |> ignore
+    Assert.Single lessToGreaterOrEqual
+
 // --- SynExpr tests: multiple candidates in one expression ---
 
 [<Fact>]

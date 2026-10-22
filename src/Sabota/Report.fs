@@ -40,6 +40,10 @@ let mutationKindLabel (kind: MutationKind) : string =
     | GreaterOrEqualToGreater -> ">= -> >"
     | LessToLessOrEqual -> "< -> <="
     | LessOrEqualToLess -> "<= -> <"
+    | GreaterToLess -> "> -> <"
+    | GreaterToLessOrEqual -> "> -> <="
+    | LessToGreater -> "< -> >"
+    | LessToGreaterOrEqual -> "< -> >="
 
 /// Get the CSS class for a mutation status
 let statusClass (status: MutationStatus) : string =

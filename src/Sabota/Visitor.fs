@@ -21,9 +21,15 @@ let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationC
         match names with
         | [ "op_Equality" ] | [ "=" ] -> addMutation EqualityToInequality r
         | [ "op_Inequality" ] | [ "<>" ] -> addMutation InequalityToEquality r
-        | [ "op_GreaterThan" ] | [ ">" ] -> addMutation GreaterToGreaterOrEqual r
+        | [ "op_GreaterThan" ] | [ ">" ] -> 
+            addMutation GreaterToGreaterOrEqual r
+            addMutation GreaterToLess r
+            addMutation GreaterToLessOrEqual r
         | [ "op_GreaterThanOrEqual" ] | [ ">=" ] -> addMutation GreaterOrEqualToGreater r
-        | [ "op_LessThan" ] | [ "<" ] -> addMutation LessToLessOrEqual r
+        | [ "op_LessThan" ] | [ "<" ] -> 
+            addMutation LessToLessOrEqual r
+            addMutation LessToGreater r
+            addMutation LessToGreaterOrEqual r
         | [ "op_LessThanOrEqual" ] | [ "<=" ] -> addMutation LessOrEqualToLess r
         | [ "true" ] -> addMutation TrueToFalse r
         | [ "false" ] -> addMutation FalseToTrue r
