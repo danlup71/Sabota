@@ -31,10 +31,10 @@ type MutationKind =
 
 
     // -------------------- Arithmetic
-// | PlusToMinus
-// | MinusToPlus
-// | TimesToDivide
-// | DivideToTimes ->
+    | PlusToMinus
+    | MinusToPlus
+    | TimesToDivide
+    | DivideToTimes
 
     // -------------------- Conditional
 // | AndToOr
@@ -74,6 +74,12 @@ let getCategory = function
     | LessToGreater
     | LessToGreaterOrEqual ->
         RelationalReversal
+
+    | PlusToMinus
+    | MinusToPlus
+    | TimesToDivide
+    | DivideToTimes ->
+        Arithmetic
 
     
     

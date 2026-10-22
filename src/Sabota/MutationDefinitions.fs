@@ -84,6 +84,30 @@ let getDefinition = function
           Description = "Less-than replaced with greater-than-or-equal."
           SurvivorInterpretation = "The tests did not detect that a less-than comparison was reversed to greater-than-or-equal." }
 
+    | MutationTypes.MutationKind.PlusToMinus -> 
+        { Original = "+"
+          Replacement = "-"
+          Description = "Addition replaced with subtraction."
+          SurvivorInterpretation = "The tests did not detect that an addition operation was changed to subtraction." }
+
+    | MutationTypes.MutationKind.MinusToPlus -> 
+        { Original = "-"
+          Replacement = "+"
+          Description = "Subtraction replaced with addition."
+          SurvivorInterpretation = "The tests did not detect that a subtraction operation was changed to addition." }
+
+    | MutationTypes.MutationKind.TimesToDivide -> 
+        { Original = "*"
+          Replacement = "/"
+          Description = "Multiplication replaced with division."
+          SurvivorInterpretation = "The tests did not detect that a multiplication operation was changed to division." }
+
+    | MutationTypes.MutationKind.DivideToTimes -> 
+        { Original = "/"
+          Replacement = "*"
+          Description = "Division replaced with multiplication."
+          SurvivorInterpretation = "The tests did not detect that a division operation was changed to multiplication." }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind

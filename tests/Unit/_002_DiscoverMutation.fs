@@ -345,6 +345,80 @@ type Config() =
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     Assert.Single trueToFalse
 
+// --- Arithmetic mutation tests ---
+
+[<Fact>]
+let ``discover PlusToMinus mutation for + operator`` () =
+    let source = """
+module TestModule
+let add x y = x + y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
+    Assert.Single plusToMinus
+
+[<Fact>]
+let ``discover MinusToPlus mutation for - operator`` () =
+    let source = """
+module TestModule
+let subtract x y = x - y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
+    Assert.Single minusToPlus
+
+[<Fact>]
+let ``discover TimesToDivide mutation for * operator`` () =
+    let source = """
+module TestModule
+let multiply x y = x * y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let timesToDivide = candidates |> List.filter (fun c -> c.Kind = MutationKind.TimesToDivide)
+    Assert.Single timesToDivide
+
+[<Fact>]
+let ``discover DivideToTimes mutation for / operator`` () =
+    let source = """
+module TestModule
+let divide x y = x / y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let divideToTimes = candidates |> List.filter (fun c -> c.Kind = MutationKind.DivideToTimes)
+    Assert.Single divideToTimes
+
+[<Fact>]
+let ``discover all 4 arithmetic mutation candidates in one function`` () =
+    let source = """
+module TestModule
+let calc x y =
+    let a = x + y
+    let b = x - y
+    let c = x * y
+    let d = x / y
+    a + b + c + d
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates "test.fs" parsed
+
+    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
+    let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
+    let timesToDivide = candidates |> List.filter (fun c -> c.Kind = MutationKind.TimesToDivide)
+    let divideToTimes = candidates |> List.filter (fun c -> c.Kind = MutationKind.DivideToTimes)
+
+    Assert.True(plusToMinus.Length >= 1)
+    Assert.Single minusToPlus |> ignore
+    Assert.Single timesToDivide |> ignore
+    Assert.Single divideToTimes
+
 // --- Edge cases ---
 
 [<Fact>]

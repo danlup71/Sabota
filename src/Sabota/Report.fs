@@ -44,6 +44,10 @@ let mutationKindLabel (kind: MutationKind) : string =
     | GreaterToLessOrEqual -> "> -> <="
     | LessToGreater -> "< -> >"
     | LessToGreaterOrEqual -> "< -> >="
+    | PlusToMinus -> "+ -> -"
+    | MinusToPlus -> "- -> +"
+    | TimesToDivide -> "* -> /"
+    | DivideToTimes -> "/ -> *"
 
 /// Get the CSS class for a mutation status
 let statusClass (status: MutationStatus) : string =

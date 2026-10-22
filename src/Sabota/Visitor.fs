@@ -31,6 +31,10 @@ let findMutationCandidates (file: string) (parsedInput: ParsedInput) : MutationC
             addMutation LessToGreater r
             addMutation LessToGreaterOrEqual r
         | [ "op_LessThanOrEqual" ] | [ "<=" ] -> addMutation LessOrEqualToLess r
+        | [ "op_Addition" ] | [ "+" ] -> addMutation PlusToMinus r
+        | [ "op_Subtraction" ] | [ "-" ] -> addMutation MinusToPlus r
+        | [ "op_Multiply" ] | [ "*" ] -> addMutation TimesToDivide r
+        | [ "op_Divide" ] | [ "op_Division" ] | [ "/" ] -> addMutation DivideToTimes r
         | [ "true" ] -> addMutation TrueToFalse r
         | [ "false" ] -> addMutation FalseToTrue r
         | _ -> ()
