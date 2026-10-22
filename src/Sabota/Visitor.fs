@@ -47,14 +47,26 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
         | [ "op_Divide" ] | _ :: [ "op_Divide" ] | [ "op_Division" ] | _ :: [ "op_Division" ] | [ "/" ] -> tryAddMutationCandidate DivideToTimes r
         | [ "op_BooleanAnd" ] | _ :: [ "op_BooleanAnd" ] | [ "&&" ] -> tryAddMutationCandidate AndToOr r
         | [ "op_BooleanOr" ] | _ :: [ "op_BooleanOr" ] | [ "||" ] -> tryAddMutationCandidate OrToAnd r
-        | [ "Some" ] | _ :: [ "Some" ] -> tryAddMutationCandidate SomeToNone r
         | [ "true" ] -> tryAddMutationCandidate TrueToFalse r
         | [ "false" ] -> tryAddMutationCandidate FalseToTrue r
         | _ -> ()
 
     
+    let isSomeIdent (expr: SynExpr) : bool =
+        match expr with
+        | SynExpr.Ident(ident) -> ident.idText = "Some"
+        | SynExpr.LongIdent(longDotId = synLongIdent) ->
+            let names = synLongIdent.LongIdent |> List.map _.idText
+            match names with
+            | [ "Some" ] -> true
+            | _ :: [ "Some" ] -> true
+            | _ -> false
+        | _ -> false
+
     let discoverMutations (expr: SynExpr) =
         match expr with
+        | SynExpr.App(funcExpr = f; range = r) when isSomeIdent f && isEnabled SomeToNone ->
+            tryAddMutationCandidate SomeToNone r
         | SynExpr.LongIdent(longDotId = synLongIdent; range = m) ->
             let names = synLongIdent.LongIdent |> List.map _.idText
             checkIdent names m
