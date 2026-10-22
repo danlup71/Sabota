@@ -45,6 +45,9 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
         | [ "op_Subtraction" ] | [ "-" ] -> tryAddMutationCandidate MinusToPlus r
         | [ "op_Multiply" ] | [ "*" ] -> tryAddMutationCandidate TimesToDivide r
         | [ "op_Divide" ] | [ "op_Division" ] | [ "/" ] -> tryAddMutationCandidate DivideToTimes r
+        | [ "op_BooleanAnd" ] | [ "&&" ] -> tryAddMutationCandidate AndToOr r
+        | [ "op_BooleanOr" ] | [ "||" ] -> tryAddMutationCandidate OrToAnd r
+        | [ "Some" ] | _ :: [ "Some" ] -> tryAddMutationCandidate SomeToNone r
         | [ "true" ] -> tryAddMutationCandidate TrueToFalse r
         | [ "false" ] -> tryAddMutationCandidate FalseToTrue r
         | _ -> ()

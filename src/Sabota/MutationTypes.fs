@@ -6,6 +6,8 @@ type MutationCategory =
     | RelationalReversal
     | Boolean
     | Arithmetic
+    | Conditional
+    | Option
 
 type MutationKind =
 
@@ -37,15 +39,12 @@ type MutationKind =
     | DivideToTimes
 
     // -------------------- Conditional
-// | AndToOr
-// | OrToAnd
-// | SomeToNone
-
-// && -> ||
-// || -> &&
-// Some x -> None
-
+    | AndToOr
+    | OrToAnd
     
+    // -------------------- Option
+    | SomeToNone
+   
     // -------------------- ReturnValue
 // [] -> [dummy]
 // [x] -> []
@@ -80,6 +79,13 @@ let getCategory = function
     | TimesToDivide
     | DivideToTimes ->
         Arithmetic
+
+    | AndToOr
+    | OrToAnd ->
+        Conditional
+
+    | SomeToNone ->
+        Option
 
     
     

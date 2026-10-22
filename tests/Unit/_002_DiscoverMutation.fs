@@ -15,6 +15,8 @@ let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.RelationalReversal
                            MutationCategory.Boolean
                            MutationCategory.Arithmetic
+                           MutationCategory.Conditional
+                           MutationCategory.Option
                            ]
 
 let parseSource (source: string) : ParsedInput =
@@ -425,6 +427,132 @@ let calc x y =
     Assert.Single minusToPlus |> ignore
     Assert.Single timesToDivide |> ignore
     Assert.Single divideToTimes
+
+// --- Conditional mutation tests ---
+
+[<Fact>]
+let ``discover AndToOr mutation for && operator`` () =
+    let source = """
+module TestModule
+let check x y = x && y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
+    Assert.Single andToOr
+
+[<Fact>]
+let ``discover OrToAnd mutation for || operator`` () =
+    let source = """
+module TestModule
+let check x y = x || y
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let orToAnd = candidates |> List.filter (fun c -> c.Kind = MutationKind.OrToAnd)
+    Assert.Single orToAnd
+
+[<Fact>]
+let ``discover both AndToOr and OrToAnd in one function`` () =
+    let source = """
+module TestModule
+let check x y z = (x && y) || z
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
+    let orToAnd = candidates |> List.filter (fun c -> c.Kind = MutationKind.OrToAnd)
+
+    Assert.Single andToOr |> ignore
+    Assert.Single orToAnd
+
+// --- Option mutation tests ---
+
+[<Fact>]
+let ``discover SomeToNone mutation for Some constructor`` () =
+    let source = """
+module TestModule
+let getValue x = Some x
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.Single someToNone
+
+[<Fact>]
+let ``discover SomeToNone mutation in Option return`` () =
+    let source = """
+module TestModule
+let tryParse x =
+    if x > 0 then Some x else None
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.Single someToNone
+
+[<Fact>]
+let ``discover SomeToNone in nested Option expression`` () =
+    let source = """
+module TestModule
+let mapOption f opt =
+    match opt with
+    | Some x -> Some (f x)
+    | None -> None
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.True(someToNone.Length >= 1)
+
+[<Fact>]
+let ``discover SomeToNone in record update expression`` () =
+    let source = """
+module TestModule
+type User = { name: string; email: string option }
+let setEmail f email = { f with email = Some email }
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.Single someToNone
+
+[<Fact>]
+let ``discover SomeToNone in record update inside lambda pipeline`` () =
+    let source = """
+module TestModule
+type Field = { name: string; value: string option }
+let setEmail f email =
+    textField "email" "Email"
+    |> fun f -> { f with enabled = false }
+    |> fun f -> { f with value = Some email }
+and textField name label = { name = name; value = None; enabled = true }
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.Single someToNone
+
+[<Fact>]
+let ``discover SomeToNone with qualified Option.Some`` () =
+    let source = """
+module TestModule
+type Field = { name: string; value: string option }
+let setEmail f email = { f with value = Option.Some email }
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
+    Assert.Single someToNone
 
 // --- Edge cases ---
 

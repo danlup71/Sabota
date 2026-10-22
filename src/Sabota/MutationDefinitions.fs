@@ -108,6 +108,24 @@ let getDefinition = function
           Description = "Division replaced with multiplication."
           SurvivorInterpretation = "The tests did not detect that a division operation was changed to multiplication." }
 
+    | MutationTypes.MutationKind.AndToOr -> 
+        { Original = "&&"
+          Replacement = "||"
+          Description = "Logical AND replaced with logical OR."
+          SurvivorInterpretation = "The tests did not detect that a logical AND was changed to logical OR." }
+
+    | MutationTypes.MutationKind.OrToAnd -> 
+        { Original = "||"
+          Replacement = "&&"
+          Description = "Logical OR replaced with logical AND."
+          SurvivorInterpretation = "The tests did not detect that a logical OR was changed to logical AND." }
+
+    | MutationTypes.MutationKind.SomeToNone -> 
+        { Original = "Some"
+          Replacement = "None"
+          Description = "Some value replaced with None."
+          SurvivorInterpretation = "The tests did not detect that a Some value was changed to None." }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind
