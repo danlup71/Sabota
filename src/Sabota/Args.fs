@@ -8,9 +8,10 @@ type FileTarget =
     | Directory of string
 
 type ParsedArgs = {
-    TestProject : string
-    SolutionRoot : string
-    Target : FileTarget
+    TestProject : string option
+    SolutionRoot : string option
+    Target : FileTarget option
+    Categories : string option
 }
 
 type ParseResult =
@@ -22,6 +23,7 @@ let parseArgs (args : string[]) : ParseResult =
     let mutable solutionRoot = None
     let mutable filePath = None
     let mutable directoryPath = None
+    let mutable categories = None
 
     let rec loop i =
         if i >= args.Length then ()
@@ -39,46 +41,40 @@ let parseArgs (args : string[]) : ParseResult =
             | "-d" when i + 1 < args.Length ->
                 directoryPath <- Some args.[i + 1]
                 loop (i + 2)
+            | "-c" when i + 1 < args.Length ->
+                categories <- Some args.[i + 1]
+                loop (i + 2)
             | _ ->
                 loop (i + 1)
 
     loop 0
 
-    let target =
-        match filePath, directoryPath with
-        | Some f, None -> Some (File f)
-        | None, Some d -> Some (Directory d)
-        | Some _, Some _ ->
-            Error "-f and -d are mutually exclusive; specify only one" |> fun _ -> None
-        | None, None -> None
-
-    let missing =
-        [
-            if testProject.IsNone then "-t (test project)"
-            if solutionRoot.IsNone then "-s (solution root)"
-            if target.IsNone then "-f (file) or -d (directory)"
-        ]
-
-    if target.IsNone && (filePath.IsSome && directoryPath.IsSome) then
+    // Check mutual exclusivity
+    if filePath.IsSome && directoryPath.IsSome then
         Error "-f and -d are mutually exclusive; specify only one"
-    elif List.isEmpty missing then
-        Ok {
-            TestProject = testProject.Value
-            SolutionRoot = solutionRoot.Value
-            Target = target.Value
-        }
     else
-        let joined = String.Join(", ", missing)
-        Error $"Missing required arguments: {joined}"
+        let target =
+            match filePath, directoryPath with
+            | Some f, None -> Some (File f)
+            | None, Some d -> Some (Directory d)
+            | None, None -> None
+            | _, _ -> None
 
-let validate (parsed : ParsedArgs) : ParseResult =
+        Ok {
+            TestProject = testProject
+            SolutionRoot = solutionRoot
+            Target = target
+            Categories = categories
+        }
+
+let validate (testProject : string) (solutionRoot : string) (target : FileTarget) : ParseResult =
     let errors =
         [
-            if not (File.Exists parsed.TestProject) then
-                $"Test project not found: {parsed.TestProject}"
-            if not (Directory.Exists parsed.SolutionRoot) then
-                $"Solution root not found: {parsed.SolutionRoot}"
-            match parsed.Target with
+            if not (File.Exists testProject) then
+                $"Test project not found: {testProject}"
+            if not (Directory.Exists solutionRoot) then
+                $"Solution root not found: {solutionRoot}"
+            match target with
             | File f ->
                 if not (File.Exists f) then
                     $"File not found: {f}"
@@ -90,21 +86,11 @@ let validate (parsed : ParsedArgs) : ParseResult =
         ]
 
     if List.isEmpty errors then
-        Ok parsed
+        Ok {
+            TestProject = Some testProject
+            SolutionRoot = Some solutionRoot
+            Target = Some target
+            Categories = None
+        }
     else
         Error (String.Join("\n", errors))
-
-let parseAndValidate (args : string[]) : ParseResult =
-    match parseArgs args with
-    | Error msg -> Error msg
-    | Ok parsed ->
-        let absolute =
-            {
-                TestProject = Path.GetFullPath parsed.TestProject
-                SolutionRoot = Path.GetFullPath parsed.SolutionRoot
-                Target =
-                    match parsed.Target with
-                    | File f -> File (Path.GetFullPath f)
-                    | Directory d -> Directory (Path.GetFullPath d)
-            }
-        validate absolute

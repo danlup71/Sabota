@@ -2,6 +2,7 @@ open System
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Sabota.Args
+open Sabota.Config
 open Sabota.Files
 open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
@@ -27,124 +28,169 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
 
 let checker = FSharpChecker.Create()
 
-let argsResult = parseAndValidate (System.Environment.GetCommandLineArgs())
+// Load config defaults
+let config = loadConfig defaultConfigPath
 
-let parsedArgs =
-    match argsResult with
+// Parse CLI args
+let cliArgs = parseArgs (System.Environment.GetCommandLineArgs())
+
+match cliArgs with
+| Error msg ->
+    eprintfn "Error: %s" msg
+    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] (-f <filePath> | -d <directory>) [-c <categories>]"
+    eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
+    exit 1
+| Ok cli ->
+
+    // Merge CLI with config defaults: CLI takes precedence
+    let testProject =
+        match cli.TestProject with
+        | Some v -> v
+        | None ->
+            match config.TestProject with
+            | Some v -> v
+            | None ->
+                eprintfn "Error: Missing required argument: -t (test project)"
+                eprintfn "  Set it via CLI or in sabota_config.json."
+                exit 1
+
+    let solutionRoot =
+        match cli.SolutionRoot with
+        | Some v -> v
+        | None ->
+            match config.SolutionRoot with
+            | Some v -> v
+            | None ->
+                eprintfn "Error: Missing required argument: -s (solution root)"
+                eprintfn "  Set it via CLI or in sabota_config.json."
+                exit 1
+
+    let target =
+        match cli.Target with
+        | Some t -> t
+        | None ->
+            match config.File, config.Directory with
+            | Some f, _ -> File f
+            | _, Some d -> Directory d
+            | None, None ->
+                eprintfn "Error: Missing required argument: -f (file) or -d (directory)"
+                eprintfn "  Set it via CLI or in sabota_config.json."
+                exit 1
+
+    let mutationCategories =
+        match cli.Categories with
+        | Some cats ->
+            printfn "Using categories from CLI argument: %s" cats
+            parseCategoriesString cats
+        | None -> config.Categories
+
+    // Resolve to absolute paths
+    let testProject = Path.GetFullPath testProject
+    let solutionRoot = Path.GetFullPath solutionRoot
+    let target =
+        match target with
+        | File f -> File (Path.GetFullPath f)
+        | Directory d -> Directory (Path.GetFullPath d)
+
+    // Validate
+    match validate testProject solutionRoot target with
     | Error msg ->
         eprintfn "Error: %s" msg
-        eprintfn "Usage: Saboteur -t <testProject> -s <solutionRoot> (-f <filePath> | -d <directory>)"
         exit 1
-    | Ok args -> args
+    | Ok _ -> ()
 
-let testPrj = parsedArgs.TestProject
-let solutionRoot = parsedArgs.SolutionRoot
+    let files =
+        match target with
+        | File f -> [f]
+        | Directory d ->
+            Directory.GetFiles(d, "*.fs")
+            |> Array.toList
 
-let files =
-    match parsedArgs.Target with
-    | File f -> [f]
-    | Directory d ->
-        Directory.GetFiles(d, "*.fs")
-        |> Array.toList
+    // Get the solution directory name for mapping in work folder
+    let solutionDirName = Path.GetFileName solutionRoot
 
+    let processFile (file : string) (workSolutionDir : string) (workTestPrj : string) : list<MutationResult> =
+        let source = File.ReadAllText(file)
 
-// Get the solution directory name for mapping in work folder
-let solutionDirName = Path.GetFileName solutionRoot
+        printfn $"parse file: {file} {timestamp ()}"
 
-let processFile (file : string) (workSolutionDir : string) (workTestPrj : string) : list<MutationResult> =
-    let source = File.ReadAllText(file)
+        let parsingOptions =
+            { FSharpParsingOptions.Default with
+                SourceFiles = [| file |] }
 
-    printfn $"parse file: {file} {timestamp ()}"
+        let parseResult =
+            checker.ParseFile(
+                file,
+                FSharp.Compiler.Text.SourceText.ofString source,
+                parsingOptions)
+            |> Async.RunSynchronously
 
-    let parsingOptions =
-        { FSharpParsingOptions.Default with
-            SourceFiles = [| file |] }
+        printfn "detect mutation candidates"
 
-    let parseResult =
-        checker.ParseFile(
-            file,
-            FSharp.Compiler.Text.SourceText.ofString source,
-            parsingOptions)
-        |> Async.RunSynchronously
+        let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
 
-    let mutationCategories = [
-                               // MutationCategory.Equality
-                               // MutationCategory.RelationalBoundary
-                               // MutationCategory.RelationalReversal
-                               // MutationCategory.Boolean
-                               // MutationCategory.Arithmetic
-                               // MutationCategory.Conditional
-                               // MutationCategory.Option
-                               // MutationCategory.ReturnListValue
-                               MutationCategory.ControlFlow
-                                ]
-    
-    printfn "detect mutation candidates"
+        // Map the candidate file to the work folder (relative to solution root)
+        let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
 
-    let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
+        let results =
+            candidates
+            |> List.map (fun candidate ->
+                // Apply mutation to the COPY in the work folder
+                let workCandidate = { candidate with File = workFile }
+                applyMutation workCandidate
 
-    // Map the candidate file to the work folder (relative to solution root)
-    let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
+                let testOutcome = test workTestPrj
+                let outcome =
+                    match testOutcome with
+                    | TestRunnerOutcome.BuildFailed ->
+                        {
+                            Status = MutationStatus.BuildFailed
+                            Interpretation = "Build failed."
+                        }
+                    | TestRunnerOutcome.TestsFailed ->
+                        {
+                            Status = MutationStatus.Killed
+                            Interpretation = "Tests detected the behavioural change."
+                        }
+                    | TestRunnerOutcome.TestsPassed ->
+                        {
+                            Status = MutationStatus.Survived
+                            Interpretation = candidate.SurvivorInterpretation
+                        }
+                
+                // Restore the original file in the work folder for the next mutation
+                restoreFile file workFile
 
-    let results =
-        candidates
-        |> List.map (fun candidate ->
-            // Apply mutation to the COPY in the work folder
-            let workCandidate = { candidate with File = workFile }
-            applyMutation workCandidate
+                createMutationResult candidate source outcome
+            )
 
-            let testOutcome = test workTestPrj
-            let outcome =
-                match testOutcome with
-                | TestRunnerOutcome.BuildFailed ->
-                    {
-                        Status = MutationStatus.BuildFailed
-                        Interpretation = "Build failed."
-                    }
-                | TestRunnerOutcome.TestsFailed ->
-                    {
-                        Status = MutationStatus.Killed
-                        Interpretation = "Tests detected the behavioural change."
-                    }
-                | TestRunnerOutcome.TestsPassed ->
-                    {
-                        Status = MutationStatus.Survived
-                        Interpretation = candidate.SurvivorInterpretation
-                    }
-            
-            // Restore the original file in the work folder for the next mutation
-            restoreFile file workFile
+        results
 
-            createMutationResult candidate source outcome
-        )
+    // Create a single work folder and copy the solution once for all files
+    let workFolder = createWorkFolder ()
+    let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
+    let workTestPrj = mapFileToWorkFolder testProject solutionRoot workSolutionDir
 
-    results
+    let startTime = DateTime.Now
 
-// Create a single work folder and copy the solution once for all files
-let workFolder = createWorkFolder ()
-let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
-let workTestPrj = mapFileToWorkFolder testPrj solutionRoot workSolutionDir
+    let result =
+        files
+        |> List.collect (fun file -> processFile file workSolutionDir workTestPrj)
 
-let startTime = DateTime.Now
+    let executionTime = DateTime.Now - startTime
 
-let result =
-    files
-    |> List.collect (fun file -> processFile file workSolutionDir workTestPrj)
+    // Clean up the work folder after all files are processed
+    deleteWorkFolder workFolder
 
-let executionTime = DateTime.Now - startTime
+    let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
+    let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
+    printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
+    printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
 
-// Clean up the work folder after all files are processed
-deleteWorkFolder workFolder
+    let reportPath = generateHtmlReport result executionTime
+    let forwardPath = reportPath.Replace("\\", "/")
+    let linkTarget = sprintf "file:///%s" forwardPath
+    let clickable = sprintf "\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\" linkTarget reportPath
+    printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
 
-let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
-let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
-printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
-printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
-
-let reportPath = generateHtmlReport result executionTime
-let forwardPath = reportPath.Replace("\\", "/")
-let linkTarget = sprintf "file:///%s" forwardPath
-let clickable = sprintf "\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\" linkTarget reportPath
-printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
-
-0 |> ignore
+    0 |> ignore

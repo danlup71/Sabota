@@ -1,0 +1,103 @@
+module Sabota.Config
+
+open System
+open System.IO
+open System.Text.Json
+open Sabota.MutationTypes
+
+let categoryMap : Map<string, MutationCategory> =
+    Map.ofList [
+        "Equality", MutationCategory.Equality
+        "RelationalBoundary", MutationCategory.RelationalBoundary
+        "RelationalReversal", MutationCategory.RelationalReversal
+        "Boolean", MutationCategory.Boolean
+        "Arithmetic", MutationCategory.Arithmetic
+        "Conditional", MutationCategory.Conditional
+        "Option", MutationCategory.Option
+        "ReturnListValue", MutationCategory.ReturnListValue
+        "ControlFlow", MutationCategory.ControlFlow
+    ]
+
+let allCategories () : MutationCategory list =
+    categoryMap.Values |> Seq.toList
+
+let parseCategoriesElement (categoriesElement : JsonElement) : MutationCategory list =
+    if categoriesElement.ValueKind = JsonValueKind.Object then
+        categoriesElement.EnumerateObject()
+        |> Seq.choose (fun (prop : JsonProperty) ->
+            match categoryMap.TryGetValue prop.Name with
+            | true, category ->
+                let enabled = prop.Value.GetBoolean()
+                if enabled then Some category else None
+            | _ -> None
+        )
+        |> Seq.toList
+    else
+        printfn "Warning: 'categories' is not an object, using all categories"
+        allCategories ()
+
+let parseCategoriesString (categoriesStr : string) : MutationCategory list =
+    categoriesStr.Split(',')
+    |> Array.map (fun s -> s.Trim())
+    |> Array.choose (fun name ->
+        match categoryMap.TryGetValue name with
+        | true, category -> Some category
+        | _ ->
+            printfn $"Warning: unknown category '{name}'"
+            None
+    )
+    |> Array.toList
+
+type ConfigDefaults = {
+    TestProject : string option
+    SolutionRoot : string option
+    File : string option
+    Directory : string option
+    Categories : MutationCategory list
+}
+
+let loadConfig (configPath : string) : ConfigDefaults =
+    if not (File.Exists configPath) then
+        printfn $"Warning: config file not found at {configPath}, using defaults"
+        {
+            TestProject = None
+            SolutionRoot = None
+            File = None
+            Directory = None
+            Categories = allCategories ()
+        }
+    else
+        let json = File.ReadAllText configPath
+        use doc = JsonDocument.Parse(json)
+        let root = doc.RootElement
+
+        let getStringOpt (key : string) : string option =
+            let mutable elem : JsonElement = Unchecked.defaultof<JsonElement>
+            if root.TryGetProperty(key, &elem) then
+                let value = elem.GetString()
+                if String.IsNullOrEmpty value then None else Some value
+            else
+                None
+
+        let testProject = getStringOpt "testProject"
+        let solutionRoot = getStringOpt "solutionRoot"
+        let file = getStringOpt "file"
+        let directory = getStringOpt "directory"
+
+        let categories =
+            let mutable elem : JsonElement = Unchecked.defaultof<JsonElement>
+            if root.TryGetProperty("categories", &elem) then
+                parseCategoriesElement elem
+            else
+                printfn "Warning: 'categories' key not found in config, using all categories"
+                allCategories ()
+
+        {
+            TestProject = testProject
+            SolutionRoot = solutionRoot
+            File = file
+            Directory = directory
+            Categories = categories
+        }
+
+let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota_config.json")

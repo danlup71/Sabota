@@ -10,3 +10,10 @@ sabota_result/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+
+# Visual Studio
+.vs/
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.sln.DotSettings.user

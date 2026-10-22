@@ -1,0 +1,18 @@
+{
+    "testProject": "D:\\clienti\\daniele\\progetti\\Taste\\tests\\Unit\\Unit.fsproj",
+    "solutionRoot": "D:\\clienti\\daniele\\progetti\\Taste\\",
+    "file": "",
+    "directory": "D:\\clienti\\daniele\\progetti\\Taste\\src\\Adapter\\",
+    "categories":
+    {
+        "Equality": true,
+        "RelationalBoundary": true,
+        "RelationalReversal": true,
+        "Boolean": true,
+        "Arithmetic": true,
+        "Conditional": true,
+        "Option": true,
+        "ReturnListValue": true,
+        "ControlFlow": true
+    }
+}
