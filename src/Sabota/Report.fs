@@ -158,12 +158,11 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
         |> String.concat "\n        "
 
     let buildFailedCard =
-        if buildFailedCount > 0 then
-            sprintf """            <div class="summary-card build-failed">
+        sprintf """
+            <div class="summary-card build-failed" data-filter="build-failed">
                 <div class="label">Build Failed</div>
                 <div class="count">%d</div>
             </div>""" buildFailedCount
-        else ""
 
     let css = """
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -341,14 +340,15 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
                 <div class="count">"""
 
     let part7 = """</div>
-            </div>
+            </div>"""
+
+    let part7b = """
             <div class="summary-card score" data-filter="score">
                 <div class="label">Mutation Score</div>
                 <div class="count">"""
 
     let part8 = """%</div>
-            </div>
-"""
+            </div>"""
 
     let part9 = """
         </div>
@@ -418,8 +418,8 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
     let header =
         part1 + timestamp + part2 + css + part3 + generatedDate + part3b + executionTimeStr + part4
         + string total + part5 + string killedCount + part6
-        + string survivedCount + part7 + string mutationScore + part8
-        + buildFailedCard + part9
+        + string survivedCount + part7 + buildFailedCard + part7b + string mutationScore + part8
+        + part9
 
     let html = header + rows + footer
 
