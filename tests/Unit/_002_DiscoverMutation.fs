@@ -17,6 +17,7 @@ let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.Arithmetic
                            MutationCategory.Conditional
                            MutationCategory.Option
+                           MutationCategory.ReturnListValue
                            ]
 
 let parseSource (source: string) : ParsedInput =
@@ -603,6 +604,47 @@ let flag = bool true
 
     let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
     Assert.Single trueToFalse
+
+// --- ReturnValue mutation tests ---
+
+[<Fact>]
+let ``discover ListReturnValueToEmpty for list expression`` () =
+    let source = """
+module TestModule
+let items = [1; 2; 3]
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
+    Assert.Single listToEmpty
+
+[<Fact>]
+let ``discover ListReturnValueToEmpty in function return`` () =
+    let source = """
+module TestModule
+let getItems x =
+    if x > 0 then [1; 2; 3] else []
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
+    Assert.Single listToEmpty
+
+[<Fact>]
+let ``discover ListReturnValueToEmpty in nested expression`` () =
+    let source = """
+module TestModule
+let process items =
+    let filtered = [for i in items do if i > 0 then yield i]
+    filtered @ [0]
+"""
+    let parsed = parseSource source
+    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+
+    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
+    Assert.True(listToEmpty.Length >= 1)
 
 // --- Edge cases ---
 

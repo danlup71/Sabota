@@ -51,6 +51,7 @@ let mutationKindLabel (kind: MutationKind) : string =
     | AndToOr -> "&& -> ||"
     | OrToAnd -> "|| -> &&"
     | SomeToNone -> "Some -> None"
+    | ReturnListValueToEmpty -> "[...] -> []"
 
 /// Get the CSS class for a mutation status
 let statusClass (status: MutationStatus) : string =

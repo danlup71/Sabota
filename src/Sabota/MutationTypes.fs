@@ -8,6 +8,7 @@ type MutationCategory =
     | Arithmetic
     | Conditional
     | Option
+    | ReturnListValue
 
 type MutationKind =
 
@@ -46,11 +47,11 @@ type MutationKind =
     | SomeToNone
    
     // -------------------- ReturnValue
-// [] -> [dummy]
-// [x] -> []
+    | ReturnListValueToEmpty
 
     // -------------------- ControlFlow
-// if (condition) -> if (!condition)
+// if (condition) -> if (not condition)
+// if (not condition) -> if (condition)
 
     
 let getCategory = function
@@ -86,6 +87,9 @@ let getCategory = function
 
     | SomeToNone ->
         Option
+
+    | ReturnListValueToEmpty ->
+        ReturnListValue
 
     
     

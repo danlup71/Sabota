@@ -126,6 +126,12 @@ let getDefinition = function
           Description = "Some value replaced with None."
           SurvivorInterpretation = "The tests did not detect that a Some value was changed to None." }
 
+    | MutationTypes.MutationKind.ReturnListValueToEmpty -> 
+        { Original = "[...]"
+          Replacement = "[]"
+          Description = "List expression replaced with empty list."
+          SurvivorInterpretation = "The tests did not detect that a list return value was changed to an empty list." }
+
 let enrich (candidate:MutationCandidate) =
     let definition =
         getDefinition candidate.Kind

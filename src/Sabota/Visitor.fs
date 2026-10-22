@@ -61,6 +61,7 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
         | SynExpr.Ident(ident) -> checkIdent [ ident.idText ] ident.idRange
         | SynExpr.Const(constant = SynConst.Bool(true); range = r) -> tryAddMutationCandidate TrueToFalse r
         | SynExpr.Const(constant = SynConst.Bool(false); range = r) -> tryAddMutationCandidate FalseToTrue r
+        | SynExpr.ArrayOrListComputed(isArray = false; range = r) -> tryAddMutationCandidate ReturnListValueToEmpty r
         | _ -> ()
 
     let rec analyzeExpr (expr: SynExpr) =
