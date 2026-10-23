@@ -61,10 +61,19 @@ let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
     path.Split(',')
     |> Array.map (fun p -> p.Trim())
     |> Array.map (fun p ->
-        if Path.IsPathRooted p then
-            p
-        else
-            Path.Combine(configDir, p)
+        // If the path contains a rooted path (e.g., "-d D:\path"), extract it
+        let separators : char array = [|' '; '\t'|]
+        let parts = p.Split(separators, StringSplitOptions.RemoveEmptyEntries)
+        let rootedPart =
+            parts
+            |> Array.tryFind (fun (part : string) -> Path.IsPathRooted part)
+        match rootedPart with
+        | Some rooted -> rooted
+        | None ->
+            if Path.IsPathRooted p then
+                p
+            else
+                Path.Combine(configDir, p)
     )
     |> String.concat ","
 
