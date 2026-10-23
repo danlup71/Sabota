@@ -4,7 +4,7 @@ open System
 open System.IO
 
 type FileTarget =
-    | File of string
+    | File of string list
     | Directory of string
 
 type ParsedArgs = {
@@ -36,7 +36,8 @@ let parseArgs (args : string[]) : ParseResult =
                 solutionRoot <- Some args.[i + 1]
                 loop (i + 2)
             | "-f" when i + 1 < args.Length ->
-                filePath <- Some args.[i + 1]
+                let files = args.[i + 1].Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
+                filePath <- Some files
                 loop (i + 2)
             | "-d" when i + 1 < args.Length ->
                 directoryPath <- Some args.[i + 1]
@@ -55,7 +56,7 @@ let parseArgs (args : string[]) : ParseResult =
     else
         let target =
             match filePath, directoryPath with
-            | Some f, None -> Some (File f)
+            | Some fs, None -> Some (File fs)
             | None, Some d -> Some (Directory d)
             | None, None -> None
             | _, _ -> None
@@ -75,11 +76,12 @@ let validate (testProject : string) (solutionRoot : string) (target : FileTarget
             if not (Directory.Exists solutionRoot) then
                 $"Solution root not found: {solutionRoot}"
             match target with
-            | File f ->
-                if not (File.Exists f) then
-                    $"File not found: {f}"
-                elif not (f.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)) then
-                    $"File must be an F# source file (.fs): {f}"
+            | File files ->
+                for f in files do
+                    if not (File.Exists f) then
+                        $"File not found: {f}"
+                    elif not (f.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)) then
+                        $"File must be an F# source file (.fs): {f}"
             | Directory d ->
                 if not (Directory.Exists d) then
                     $"Directory not found: {d}"

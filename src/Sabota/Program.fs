@@ -37,7 +37,7 @@ let cliArgs = parseArgs (System.Environment.GetCommandLineArgs())
 match cliArgs with
 | Error msg ->
     eprintfn "Error: %s" msg
-    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] (-f <filePath> | -d <directory>) [-c <categories>]"
+    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] (-f <file1,file2,...> | -d <directory>) [-c <categories>]"
     eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
     exit 1
 | Ok cli ->
@@ -70,7 +70,9 @@ match cliArgs with
         | Some t -> t
         | None ->
             match config.File, config.Directory with
-            | Some f, _ -> File f
+            | Some f, _ ->
+                let files = f.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
+                File files
             | _, Some d -> Directory d
             | None, None ->
                 eprintfn "Error: Missing required argument: -f (file) or -d (directory)"
@@ -89,7 +91,7 @@ match cliArgs with
     let solutionRoot = Path.GetFullPath solutionRoot
     let target =
         match target with
-        | File f -> File (Path.GetFullPath f)
+        | File files -> File (List.map Path.GetFullPath files)
         | Directory d -> Directory (Path.GetFullPath d)
 
     // Validate
@@ -101,7 +103,7 @@ match cliArgs with
 
     let files =
         match target with
-        | File f -> [f]
+        | File fs -> fs
         | Directory d ->
             Directory.GetFiles(d, "*.fs")
             |> Array.toList
