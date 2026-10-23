@@ -1,8 +1,8 @@
 {
-    "testProject": "path to your UnitTest.fsproj",
-    "solutionRoot": "path to your solution folder",
+    "testProject": "../../../../../resources/Test1/Tests.fs",
+    "solutionRoot": "../../../../../resources/Sample1/",
     "file": "",
-    "directory": "path to the directory containing the files you want to mutate",
+    "directory": "",
     "categories":
     {
         "Equality": true,

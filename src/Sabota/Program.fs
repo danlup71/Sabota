@@ -112,10 +112,7 @@ match cliArgs with
                 |> Array.toList
             )
 
-    // Get the solution directory name for mapping in work folder
-    let solutionDirName = Path.GetFileName solutionRoot
-
-    let processFile (file : string) (workSolutionDir : string) (workTestPrj : string) : list<MutationResult> =
+    let processFile (file : string) (workFolder : string) (workTestPrj : string) : list<MutationResult> =
         let source = File.ReadAllText(file)
 
         printfn $"parse file: {file} {timestamp ()}"
@@ -135,8 +132,8 @@ match cliArgs with
 
         let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
 
-        // Map the candidate file to the work folder (relative to solution root)
-        let workFile = mapFileToWorkFolder file solutionRoot workSolutionDir
+        // Copy the source file to the work folder (it may be outside the solution root)
+        let workFile = copyFileToWorkFolder file solutionRoot workFolder
 
         let results =
             candidates
@@ -175,13 +172,15 @@ match cliArgs with
     // Create a single work folder and copy the solution once for all files
     let workFolder = createWorkFolder ()
     let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
-    let workTestPrj = mapFileToWorkFolder testProject solutionRoot workSolutionDir
+
+    // Copy the test project to the work folder (it may be outside the solution root)
+    let workTestPrj = copyFileToWorkFolder testProject solutionRoot workFolder
 
     let startTime = DateTime.Now
 
     let result =
         files
-        |> List.collect (fun file -> processFile file workSolutionDir workTestPrj)
+        |> List.collect (fun file -> processFile file workFolder workTestPrj)
 
     let executionTime = DateTime.Now - startTime
 

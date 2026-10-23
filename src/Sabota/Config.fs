@@ -56,6 +56,18 @@ type ConfigDefaults = {
     Categories : MutationCategory list
 }
 
+let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
+    let configDir = Path.GetDirectoryName configPath
+    path.Split(',')
+    |> Array.map (fun p -> p.Trim())
+    |> Array.map (fun p ->
+        if Path.IsPathRooted p then
+            p
+        else
+            Path.Combine(configDir, p)
+    )
+    |> String.concat ","
+
 let loadConfig (configPath : string) : ConfigDefaults =
     if not (File.Exists configPath) then
         printfn $"Warning: config file not found at {configPath}, using defaults"
@@ -75,7 +87,7 @@ let loadConfig (configPath : string) : ConfigDefaults =
             let mutable elem : JsonElement = Unchecked.defaultof<JsonElement>
             if root.TryGetProperty(key, &elem) then
                 let value = elem.GetString()
-                if String.IsNullOrEmpty value then None else Some value
+                if String.IsNullOrEmpty value then None else Some (resolvePathRelativeToConfig configPath value)
             else
                 None
 

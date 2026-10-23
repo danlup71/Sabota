@@ -92,6 +92,21 @@ let copyProjectToWorkFolder (sourceProjectPath: string) (workFolder: string) : s
     printfnColor ConsoleColor.Cyan $"Project copied to work folder: {targetProjectPath}"
     targetProjectPath
 
+/// Copy a single file to the work folder, preserving its directory structure relative to a base directory.
+/// If the file is outside the base directory, it is copied using its full path structure.
+let copyFileToWorkFolder (originalFile: string) (baseDir: string) (workDir: string) : string =
+    let relativePath = Path.GetRelativePath(baseDir, originalFile)
+    let workFile = Path.Combine(workDir, relativePath)
+
+    // Ensure the target directory exists
+    let workFileDir = Path.GetDirectoryName workFile
+    if not (Directory.Exists workFileDir) then
+        Directory.CreateDirectory(workFileDir) |> ignore
+
+    // Copy the file
+    File.Copy(originalFile, workFile, overwrite = true)
+    workFile
+
 let mapFileToWorkFolder (originalFile: string) (sourceDir: string) (workDir: string) : string =
     let relativePath = Path.GetRelativePath(sourceDir, originalFile)
     Path.Combine(workDir, relativePath)
