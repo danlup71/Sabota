@@ -430,7 +430,7 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
     let header =
         part1 + timestamp + part2 + css + part3 + generatedDate + part3b + executionTimeStr + part4
         + string total + part5 + string killedCount + part6
-        + string survivedCount + part7 + buildFailedCard + part7b + string mutationScore + part8
+        + string survivedCount + part7 + buildFailedCard + part7b + sprintf "%.2f" mutationScore + part8
         + part9
 
     let html = header + rows + footer
