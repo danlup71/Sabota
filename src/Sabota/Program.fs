@@ -37,7 +37,8 @@ let cliArgs = parseArgs (System.Environment.GetCommandLineArgs())
 match cliArgs with
 | Error msg ->
     eprintfn "Error: %s" msg
-    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] (-f <file1,file2,...> | -d <directory>) [-c <categories>]"
+    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
+    eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
     eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
     exit 1
 | Ok cli ->
@@ -75,9 +76,9 @@ match cliArgs with
                 File files
             | _, Some d -> Directory d
             | None, None ->
-                eprintfn "Error: Missing required argument: -f (file) or -d (directory)"
-                eprintfn "  Set it via CLI or in sabota_config.json."
-                exit 1
+                // Fallback: use solution root as the directory target
+                printfn "Neither -f nor -d provided; using solution root (-s) as directory target."
+                Directory solutionRoot
 
     let mutationCategories =
         match cli.Categories with

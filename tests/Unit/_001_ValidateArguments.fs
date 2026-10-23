@@ -13,7 +13,9 @@ let ``parseArgs with -t -s -f returns Ok with File target`` () =
         Assert.Equal(Some "test.fsproj", parsed.TestProject)
         Assert.Equal(Some "solution_root", parsed.SolutionRoot)
         match parsed.Target with
-        | Some (File f) -> Assert.Equal("file.fs", f)
+        | Some (File files) ->
+            Assert.Single(files) |> ignore
+            Assert.Equal("file.fs", List.head files)
         | Some (Directory _) -> Assert.Fail("Expected File target")
         | None -> Assert.Fail("Expected Some target")
     | Error msg ->
@@ -88,7 +90,9 @@ let ``parseArgs ignores unknown arguments`` () =
         Assert.Equal(Some "test.fsproj", parsed.TestProject)
         Assert.Equal(Some "solution_root", parsed.SolutionRoot)
         match parsed.Target with
-        | Some (File f) -> Assert.Equal("file.fs", f)
+        | Some (File files) ->
+            Assert.Single(files) |> ignore
+            Assert.Equal("file.fs", List.head files)
         | Some (Directory _) -> Assert.Fail("Expected File target")
         | None -> Assert.Fail("Expected Some target")
     | Error msg ->
@@ -102,7 +106,9 @@ let ``parseArgs accepts arguments in any order`` () =
         Assert.Equal(Some "test.fsproj", parsed.TestProject)
         Assert.Equal(Some "solution_root", parsed.SolutionRoot)
         match parsed.Target with
-        | Some (File f) -> Assert.Equal("file.fs", f)
+        | Some (File files) ->
+            Assert.Single(files) |> ignore
+            Assert.Equal("file.fs", List.head files)
         | Some (Directory _) -> Assert.Fail("Expected File target")
         | None -> Assert.Fail("Expected Some target")
     | Error msg ->
@@ -110,7 +116,7 @@ let ``parseArgs accepts arguments in any order`` () =
 
 [<Fact>]
 let ``validate with non-existent files returns Error`` () =
-    match validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (File "C:\\nonexistent\\file.fs") with
+    match validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (File ["C:\\nonexistent\\file.fs"]) with
     | Error msg ->
         Assert.Contains("Test project not found", msg)
         Assert.Contains("Solution root not found", msg)
@@ -132,7 +138,7 @@ let ``validate with existing files returns Ok`` () =
     File.WriteAllText(fileFs, "let x = 1")
 
     try
-        match validate testPrj solutionRoot (File fileFs) with
+        match validate testPrj solutionRoot (File [fileFs]) with
         | Ok _ -> ()
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -153,7 +159,7 @@ let ``validate file without .fs extension returns Error`` () =
     File.WriteAllText(fileCs, "class Foo {}")
 
     try
-        match validate testPrj solutionRoot (File fileCs) with
+        match validate testPrj solutionRoot (File [fileCs]) with
         | Error msg ->
             Assert.Contains(".fs", msg)
         | Ok _ ->
@@ -227,7 +233,9 @@ let ``parseAndValidate with -f resolves relative paths to absolute`` () =
             Assert.Equal(Some "test.fsproj", parsed.TestProject)
             Assert.Equal(Some "solution", parsed.SolutionRoot)
             match parsed.Target with
-            | Some (File f) -> Assert.Equal("file.fs", f)
+            | Some (File files) ->
+                Assert.Single(files) |> ignore
+                Assert.Equal("file.fs", List.head files)
             | _ -> Assert.Fail("Expected File target")
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -300,7 +308,7 @@ let ``parseArgs missing -s with valid files returns Ok with None`` () =
 
 [<Fact>]
 let ``validate rejects non-existent paths`` () =
-    match validate "C:\\no\\test.fsproj" "C:\\no\\solution" (File "C:\\no\\file.fs") with
+    match validate "C:\\no\\test.fsproj" "C:\\no\\solution" (File ["C:\\no\\file.fs"]) with
     | Error msg ->
         Assert.Contains("not found", msg)
     | Ok _ ->
@@ -320,10 +328,144 @@ let ``validate rejects -f with wrong extension`` () =
     File.WriteAllText(fileCs, "class Foo {}")
 
     try
-        match validate testPrj solutionRoot (File fileCs) with
+        match validate testPrj solutionRoot (File [fileCs]) with
         | Error msg ->
             Assert.Contains(".fs", msg)
         | Ok _ ->
             Assert.Fail("Expected Error for .cs file")
     finally
         Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``parseArgs with -f CSV multiple files returns Ok with File list`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file1.fs,file2.fs,file3.fs"|]
+    match parseArgs args with
+    | Ok parsed ->
+        match parsed.Target with
+        | Some (File files) ->
+            Assert.Equal(3, List.length files)
+            Assert.Equal("file1.fs", files.[0])
+            Assert.Equal("file2.fs", files.[1])
+            Assert.Equal("file3.fs", files.[2])
+        | _ -> Assert.Fail("Expected File target")
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``parseArgs with -f CSV with spaces returns Ok with trimmed files`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file1.fs , file2.fs , file3.fs"|]
+    match parseArgs args with
+    | Ok parsed ->
+        match parsed.Target with
+        | Some (File files) ->
+            Assert.Equal(3, List.length files)
+            Assert.Equal("file1.fs", files.[0])
+            Assert.Equal("file2.fs", files.[1])
+            Assert.Equal("file3.fs", files.[2])
+        | _ -> Assert.Fail("Expected File target")
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``validate with multiple files validates all`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.fsproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let file1 = Path.Combine(tempDir, "file1.fs")
+    let file2 = Path.Combine(tempDir, "file2.fs")
+
+    File.WriteAllText(testPrj, "<Project/>")
+    File.WriteAllText(file1, "let x = 1")
+    File.WriteAllText(file2, "let y = 2")
+
+    try
+        match validate testPrj solutionRoot (File [file1; file2]) with
+        | Ok _ -> ()
+        | Error msg ->
+            Assert.Fail($"Expected Ok, got Error: {msg}")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``validate with one non-existent file in list returns Error`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.fsproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let file1 = Path.Combine(tempDir, "file1.fs")
+    let file2 = Path.Combine(tempDir, "nonexistent.fs")
+
+    File.WriteAllText(testPrj, "<Project/>")
+    File.WriteAllText(file1, "let x = 1")
+
+    try
+        match validate testPrj solutionRoot (File [file1; file2]) with
+        | Error msg ->
+            Assert.Contains("File not found", msg)
+        | Ok _ ->
+            Assert.Fail("Expected Error for non-existent file in list")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``validate with one wrong extension in list returns Error`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.fsproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let file1 = Path.Combine(tempDir, "file1.fs")
+    let file2 = Path.Combine(tempDir, "file2.cs")
+
+    File.WriteAllText(testPrj, "<Project/>")
+    File.WriteAllText(file1, "let x = 1")
+    File.WriteAllText(file2, "class Foo {}")
+
+    try
+        match validate testPrj solutionRoot (File [file1; file2]) with
+        | Error msg ->
+            Assert.Contains(".fs", msg)
+        | Ok _ ->
+            Assert.Fail("Expected Error for .cs file in list")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``parseArgs with only -t returns Ok with None for solution and target`` () =
+    let args = [|"-t"; "test.fsproj"|]
+    match parseArgs args with
+    | Ok parsed ->
+        Assert.Equal(Some "test.fsproj", parsed.TestProject)
+        Assert.Equal(None, parsed.SolutionRoot)
+        Assert.Equal(None, parsed.Target)
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``parseArgs with only -s returns Ok with None for test project and target`` () =
+    let args = [|"-s"; "solution_root"|]
+    match parseArgs args with
+    | Ok parsed ->
+        Assert.Equal(None, parsed.TestProject)
+        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
+        Assert.Equal(None, parsed.Target)
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``parseArgs with no arguments returns Ok with all None`` () =
+    let args = [||]
+    match parseArgs args with
+    | Ok parsed ->
+        Assert.Equal(None, parsed.TestProject)
+        Assert.Equal(None, parsed.SolutionRoot)
+        Assert.Equal(None, parsed.Target)
+        Assert.Equal(None, parsed.Categories)
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
