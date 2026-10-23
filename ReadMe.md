@@ -16,25 +16,25 @@ Download the executable and run in terminal
 
 1. specify test project and solution root folder
 ```Powershell
-.\Sabota.exe -t path\UnitTest.fsproj -r solutionRootFolderPath
+.\Sabota.exe -t path\UnitTest.fsproj -s solutionRootFolderPath
 sabota
 ```
 
 2. specify test project ,solution root folder and filter to mutate only subfolder files
 ```Powershell
-.\Sabota.exe -t path\UnitTest.fsproj -r solutionRootFolderPath -d subFolderPath
+.\Sabota.exe -t path\UnitTest.fsproj -s solutionRootFolderPath -d subFolderPath
 sabota
 ```
 
 3. specify test project ,solution root folder and filter to mutate only specific files
 ```Powershell
-.\Sabota.exe -t path\UnitTest.fsproj -r solutionRootFolderPath -f file1Path,file2Path
+.\Sabota.exe -t path\UnitTest.fsproj -s solutionRootFolderPath -f file1Path,file2Path
 sabota
 ```
 
 4. filter the mutation category 
 ```Powershell
-.\Sabota.exe -t path\UnitTest.fsproj -r solutionRootFolderPath -c boolean,Arithmetic,Conditional 
+.\Sabota.exe -t path\UnitTest.fsproj -s solutionRootFolderPath -c boolean,Arithmetic,Conditional 
 sabota
 ```
 
