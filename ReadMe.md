@@ -51,6 +51,12 @@ Html report allows to browse and filter results
 - Not all mutation categories are implemented yet
 - Equivalent mutants are not yet detected
 
+## Antivirus
+The self-contained single-file executable may occasionally trigger antivirus warnings because it is an unsigned executable.
+If you prefer, you can build Sabota directly from source:
+dotnet publish src/Sabota/Sabota.fsproj -c Release
+The full source code used to produce these binaries is available in this repository.
+
 ### Roadmap
 - Custom business-domain mutations
 - DU discovery and mutation suggestions
