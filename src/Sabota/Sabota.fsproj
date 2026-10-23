@@ -6,6 +6,15 @@
         <RootNamespace>Sabota</RootNamespace>
         <PublishSingleFile>true</PublishSingleFile>
         <UseAppHost>true</UseAppHost>
+        <Version>0.1.0</Version>
+        <Title>Sabota</Title>
+        <Authors>Daniele Luppi</Authors>
+        <Description>Mutation testing for F# using AST discovery and source-text mutations.</Description>
+        <Copyright>Copyright (c) 2026 Daniele Luppi</Copyright>
+        <RepositoryUrl>https://github.com/danlup71/Sabota</RepositoryUrl>
+        <PackageTags>fsharp; mutation-testing; testing; dotnet; cli; code-quality</PackageTags>
+        <Company>Daniele Luppi</Company>
+        <AssemblyVersion>0.1.0</AssemblyVersion>
     </PropertyGroup>
 
     <ItemGroup>
