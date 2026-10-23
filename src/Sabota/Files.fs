@@ -2,6 +2,7 @@ module Sabota.Files
 
 open System
 open System.IO
+open System.Xml.Linq
 open Sabota.MutationCandidates
 
 let printfnColor (color: ConsoleColor) text : 'a =
@@ -91,6 +92,50 @@ let copyProjectToWorkFolder (sourceProjectPath: string) (workFolder: string) : s
     let targetProjectPath = Path.Combine(targetDir, Path.GetFileName sourceProjectPath)
     printfnColor ConsoleColor.Cyan $"Project copied to work folder: {targetProjectPath}"
     targetProjectPath
+
+/// Fix ProjectReference paths in a copied .fsproj file so they point to the correct
+/// locations inside the work folder's solution directory.
+/// The test project is copied to workFolder/<testDirName>/ but the solution is at
+/// workFolder/<solutionDirName>/. We need to rewrite relative ProjectReference paths
+/// so they resolve correctly from the test project's new location.
+let fixProjectReferences (originalTestPrj: string) (workTestPrj: string) (solutionRoot: string) (workFolder: string) : unit =
+    let solutionDirName = Path.GetFileName solutionRoot
+    let workSolutionDir = Path.Combine(workFolder, solutionDirName)
+    
+    if not (File.Exists workTestPrj) then
+        invalidArg (nameof workTestPrj) $"Project file not found: {workTestPrj}"
+
+    let originalTestDir = Path.GetDirectoryName originalTestPrj
+    let doc = XDocument.Load(workTestPrj)
+    
+    // SDK-style .fsproj files don't use the MSBuild XML namespace
+    let references = doc.Descendants(XName.Get("ProjectReference"))
+    
+    references
+    |> Seq.iter (fun refElem ->
+        let includeAttr = refElem.Attribute "Include"
+        match includeAttr with
+        | null -> ()
+        | attr ->
+            let originalRelativePath = attr.Value
+            // The original path is relative to the original test project's directory.
+            // Resolve it to an absolute path in the original solution.
+            let originalProjectPath = Path.GetFullPath(Path.Combine(originalTestDir, originalRelativePath))
+            
+            // Now find where this project should be in the work folder.
+            // The project is inside the solution, so we compute its path relative to the solution root
+            // and then place it under workSolutionDir.
+            let relativeToSolution = Path.GetRelativePath(solutionRoot, originalProjectPath)
+            let workProjectPath = Path.Combine(workSolutionDir, relativeToSolution)
+            
+            // Finally, compute the new relative path from the copied test project to the work project.
+            let copiedTestDir = Path.GetDirectoryName workTestPrj
+            let newRelativePath = Path.GetRelativePath(copiedTestDir, workProjectPath)
+            
+            attr.Value <- newRelativePath
+    )
+
+    doc.Save(workTestPrj)
 
 /// Copy a single file to the work folder, preserving its directory structure relative to a base directory.
 /// If the file is outside the base directory, it is copied using its full path structure.
@@ -255,6 +300,7 @@ let test (filePath: string) : TestRunnerOutcome =
 
     | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
         printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
+        printfn $"{output}"
         TestRunnerOutcome.BuildFailed
 
     | _ ->

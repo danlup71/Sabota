@@ -176,6 +176,10 @@ match cliArgs with
     // Copy the test project to the work folder (it may be outside the solution root)
     let workTestPrj = copyProjectToWorkFolder testProject workFolder
 
+    // Fix ProjectReference paths in the copied test project so they point to the correct
+    // locations inside the work folder's solution directory
+    fixProjectReferences testProject workTestPrj solutionRoot workFolder
+
     let startTime = DateTime.Now
 
     let result =
