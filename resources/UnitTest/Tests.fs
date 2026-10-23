@@ -14,4 +14,9 @@ let ``Compare Equals test`` () =
 let ``Compare Different test`` () =
     
     let equal = compareEqual 2 1
-    Assert.False(equal)    
+    Assert.False(equal)
+    
+[<Fact>]
+let ``Compare collection`` () =
+        
+    Assert.Equal(2,returnCollection.Length)        

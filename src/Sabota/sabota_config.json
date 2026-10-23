@@ -1,6 +1,6 @@
 {
-    "testProject": "../../../../../resources/Test1/Tests.fs",
-    "solutionRoot": "../../../../../resources/Sample1/",
+    "testProject": "../../../../../resources/UnitTest/UnitTest.fsproj",
+    "solutionRoot": "../../../../../resources/",
     "file": "",
     "directory": "",
     "categories":

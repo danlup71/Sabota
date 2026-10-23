@@ -3,8 +3,8 @@
     <File Path="docs/UserStories.md" />
   </Folder>
   <Folder Name="/resources/">
-    <Project Path="resources/Sample1/Sample1.fsproj" />
-    <Project Path="resources/Test1/Test1.fsproj" />
+    <Project Path="resources/Samples/Samples.fsproj" />
+    <Project Path="resources/UnitTest/UnitTest.fsproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Sabota/Sabota.fsproj" />

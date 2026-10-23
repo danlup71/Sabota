@@ -186,9 +186,9 @@ let applyMutation (mutation: MutationCandidate) : unit =
         // For ControlFlow mutations, construct the replacement from the actual source text
         if innerText <> "" then
             match mutation.Kind with
-            | Sabota.MutationTypes.MutationKind.ConditionToNotCondition ->
+            | MutationTypes.MutationKind.ConditionToNotCondition ->
                 replacement <- $"not ({innerText})"
-            | Sabota.MutationTypes.MutationKind.NotConditionToCondition ->
+            | MutationTypes.MutationKind.NotConditionToCondition ->
                 replacement <- stripNot innerText
             | _ -> ()
 
@@ -221,6 +221,7 @@ let applyMutation (mutation: MutationCandidate) : unit =
         else
             result
 
+    //printfn $"\n{finalText}\n"
     File.WriteAllText(filePath, finalText)
 
 
@@ -245,13 +246,14 @@ let test (filePath: string) : TestRunnerOutcome =
     proc.WaitForExit()
 
     let output = proc.StandardOutput.ReadToEnd() 
+    let error = proc.StandardError.ReadToEnd() 
     
     match proc.ExitCode with
     | 0 ->
         printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
         TestsPassed
 
-    | _ when output.Contains("Build FAILED") ->
+    | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
         printfnColor ConsoleColor.DarkGreen $"  -> NOBUILD {timestamp ()}"
         TestRunnerOutcome.BuildFailed
 

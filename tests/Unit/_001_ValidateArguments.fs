@@ -170,6 +170,28 @@ let ``validate file without .fs extension returns Error`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
+let ``validate test project without .fsproj extension returns Error`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.csproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let fileFs = Path.Combine(tempDir, "file.fs")
+
+    File.WriteAllText(testPrj, "<Project/>")
+    File.WriteAllText(fileFs, "let x = 1")
+
+    try
+        match validate testPrj solutionRoot (File [fileFs]) with
+        | Error msg ->
+            Assert.Contains(".fsproj", msg)
+        | Ok _ ->
+            Assert.Fail("Expected Error for non-.fsproj test project")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
 let ``validate with existing directory returns Ok`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore

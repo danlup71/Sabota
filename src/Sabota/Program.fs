@@ -174,7 +174,7 @@ match cliArgs with
     let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
 
     // Copy the test project to the work folder (it may be outside the solution root)
-    let workTestPrj = copyFileToWorkFolder testProject solutionRoot workFolder
+    let workTestPrj = copyProjectToWorkFolder testProject workFolder
 
     let startTime = DateTime.Now
 
@@ -189,8 +189,10 @@ match cliArgs with
 
     let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
     let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
+    let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length
     printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
     printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
+    printfnColor ConsoleColor.Black $"BUILD FAILED {buildFailed} !"
 
     let reportPath = generateHtmlReport result executionTime
     let forwardPath = reportPath.Replace("\\", "/")

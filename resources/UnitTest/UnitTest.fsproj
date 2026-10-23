@@ -3,6 +3,7 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <IsPackable>false</IsPackable>
+        <RootNamespace>Test1</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,7 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Sample1\Sample1.fsproj" />
+      <ProjectReference Include="..\Samples\Samples.fsproj" />
     </ItemGroup>
 
 </Project>

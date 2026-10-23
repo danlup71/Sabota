@@ -72,6 +72,8 @@ let parseArgs (args : string[]) : ParseResult =
 let validate (testProject : string) (solutionRoot : string) (target : FileTarget) : ParseResult =
     let errors =
         [
+            if not (testProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then
+                $"Test project must be an F# project file (.fsproj): {testProject}"
             if not (File.Exists testProject) then
                 $"Test project not found: {testProject}"
             if not (Directory.Exists solutionRoot) then
