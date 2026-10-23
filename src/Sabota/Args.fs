@@ -5,7 +5,7 @@ open System.IO
 
 type FileTarget =
     | File of string list
-    | Directory of string
+    | Directory of string list
 
 type ParsedArgs = {
     TestProject : string option
@@ -40,7 +40,8 @@ let parseArgs (args : string[]) : ParseResult =
                 filePath <- Some files
                 loop (i + 2)
             | "-d" when i + 1 < args.Length ->
-                directoryPath <- Some args.[i + 1]
+                let dirs = args.[i + 1].Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
+                directoryPath <- Some dirs
                 loop (i + 2)
             | "-c" when i + 1 < args.Length ->
                 categories <- Some args.[i + 1]
@@ -57,7 +58,7 @@ let parseArgs (args : string[]) : ParseResult =
         let target =
             match filePath, directoryPath with
             | Some fs, None -> Some (File fs)
-            | None, Some d -> Some (Directory d)
+            | None, Some ds -> Some (Directory ds)
             | None, None -> None
             | _, _ -> None
 
@@ -82,9 +83,10 @@ let validate (testProject : string) (solutionRoot : string) (target : FileTarget
                         $"File not found: {f}"
                     elif not (f.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)) then
                         $"File must be an F# source file (.fs): {f}"
-            | Directory d ->
-                if not (Directory.Exists d) then
-                    $"Directory not found: {d}"
+            | Directory dirs ->
+                for d in dirs do
+                    if not (Directory.Exists d) then
+                        $"Directory not found: {d}"
         ]
 
     if List.isEmpty errors then

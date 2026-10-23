@@ -29,7 +29,9 @@ let ``parseArgs with -t -s -d returns Ok with Directory target`` () =
         Assert.Equal(Some "test.fsproj", parsed.TestProject)
         Assert.Equal(Some "solution_root", parsed.SolutionRoot)
         match parsed.Target with
-        | Some (Directory d) -> Assert.Equal("src_dir", d)
+        | Some (Directory dirs) ->
+            Assert.Single(dirs) |> ignore
+            Assert.Equal("src_dir", List.head dirs)
         | Some (File _) -> Assert.Fail("Expected Directory target")
         | None -> Assert.Fail("Expected Some target")
     | Error msg ->
@@ -181,7 +183,7 @@ let ``validate with existing directory returns Ok`` () =
     File.WriteAllText(testPrj, "<Project/>")
 
     try
-        match validate testPrj solutionRoot (Directory src_dir) with
+        match validate testPrj solutionRoot (Directory [src_dir]) with
         | Ok _ -> ()
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -201,7 +203,7 @@ let ``validate with non-existent directory returns Error`` () =
     File.WriteAllText(testPrj, "<Project/>")
 
     try
-        match validate testPrj solutionRoot (Directory nonExistentDir) with
+        match validate testPrj solutionRoot (Directory [nonExistentDir]) with
         | Error msg ->
             Assert.Contains("Directory not found", msg)
         | Ok _ ->
@@ -266,7 +268,9 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
             Assert.Equal(Some "test.fsproj", parsed.TestProject)
             Assert.Equal(Some "solution", parsed.SolutionRoot)
             match parsed.Target with
-            | Some (Directory d) -> Assert.Equal("src", d)
+            | Some (Directory dirs) ->
+                Assert.Single(dirs) |> ignore
+                Assert.Equal("src", List.head dirs)
             | _ -> Assert.Fail("Expected Directory target")
         | Error msg ->
             Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -467,5 +471,163 @@ let ``parseArgs with no arguments returns Ok with all None`` () =
         Assert.Equal(None, parsed.SolutionRoot)
         Assert.Equal(None, parsed.Target)
         Assert.Equal(None, parsed.Categories)
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``parseArgs with -d CSV multiple directories returns Ok with Directory list`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "dir1,dir2,dir3"|]
+    match parseArgs args with
+    | Ok parsed ->
+        match parsed.Target with
+        | Some (Directory dirs) ->
+            Assert.Equal(3, List.length dirs)
+            Assert.Equal("dir1", dirs.[0])
+            Assert.Equal("dir2", dirs.[1])
+            Assert.Equal("dir3", dirs.[2])
+        | _ -> Assert.Fail("Expected Directory target")
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``parseArgs with -d CSV with spaces returns Ok with trimmed directories`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "dir1 , dir2 , dir3"|]
+    match parseArgs args with
+    | Ok parsed ->
+        match parsed.Target with
+        | Some (Directory dirs) ->
+            Assert.Equal(3, List.length dirs)
+            Assert.Equal("dir1", dirs.[0])
+            Assert.Equal("dir2", dirs.[1])
+            Assert.Equal("dir3", dirs.[2])
+        | _ -> Assert.Fail("Expected Directory target")
+    | Error msg ->
+        Assert.Fail($"Expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``validate with multiple existing directories returns Ok`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.fsproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let dir1 = Path.Combine(tempDir, "dir1")
+    let dir2 = Path.Combine(tempDir, "dir2")
+    Directory.CreateDirectory(dir1) |> ignore
+    Directory.CreateDirectory(dir2) |> ignore
+
+    File.WriteAllText(testPrj, "<Project/>")
+
+    try
+        match validate testPrj solutionRoot (Directory [dir1; dir2]) with
+        | Ok _ -> ()
+        | Error msg ->
+            Assert.Fail($"Expected Ok, got Error: {msg}")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``validate with one non-existent directory in list returns Error`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    let testPrj = Path.Combine(tempDir, "test.fsproj")
+    let solutionRoot = Path.Combine(tempDir, "solution")
+    Directory.CreateDirectory(solutionRoot) |> ignore
+    let dir1 = Path.Combine(tempDir, "dir1")
+    let dir2 = Path.Combine(tempDir, "nonexistent")
+    Directory.CreateDirectory(dir1) |> ignore
+
+    File.WriteAllText(testPrj, "<Project/>")
+
+    try
+        match validate testPrj solutionRoot (Directory [dir1; dir2]) with
+        | Error msg ->
+            Assert.Contains("Directory not found", msg)
+        | Ok _ ->
+            Assert.Fail("Expected Error for non-existent directory in list")
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``Directory.GetFiles recursively discovers .fs files in subdirectories`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    // Create nested structure: tempDir/src/sub1/sub2/
+    let srcDir = Path.Combine(tempDir, "src")
+    let sub1 = Path.Combine(srcDir, "sub1")
+    let sub2 = Path.Combine(sub1, "sub2")
+    Directory.CreateDirectory(sub2) |> ignore
+
+    // Create .fs files at different levels
+    File.WriteAllText(Path.Combine(srcDir, "top.fs"), "let x = 1")
+    File.WriteAllText(Path.Combine(sub1, "mid.fs"), "let y = 2")
+    File.WriteAllText(Path.Combine(sub2, "deep.fs"), "let z = 3")
+    // Create a non-.fs file that should be excluded
+    File.WriteAllText(Path.Combine(sub1, "readme.txt"), "ignore me")
+
+    try
+        let files = Directory.GetFiles(srcDir, "*.fs", SearchOption.AllDirectories) |> Array.toList
+        Assert.Equal(3, List.length files)
+        
+        let fileNames = files |> List.map Path.GetFileName |> List.sort
+        Assert.Contains("top.fs", fileNames)
+        Assert.Contains("mid.fs", fileNames)
+        Assert.Contains("deep.fs", fileNames)
+        Assert.False(List.contains "readme.txt" fileNames)
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``Directory.GetFiles across multiple directories collects all .fs files`` () =
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+
+    // Create two separate directories with subdirectories
+    let dir1 = Path.Combine(tempDir, "project1")
+    let dir1Sub = Path.Combine(dir1, "src")
+    Directory.CreateDirectory(dir1Sub) |> ignore
+    
+    let dir2 = Path.Combine(tempDir, "project2")
+    let dir2Sub = Path.Combine(dir2, "lib")
+    Directory.CreateDirectory(dir2Sub) |> ignore
+
+    // Create .fs files in each directory tree
+    File.WriteAllText(Path.Combine(dir1, "main.fs"), "let x = 1")
+    File.WriteAllText(Path.Combine(dir1Sub, "util.fs"), "let y = 2")
+    File.WriteAllText(Path.Combine(dir2, "core.fs"), "let z = 3")
+    File.WriteAllText(Path.Combine(dir2Sub, "helper.fs"), "let w = 4")
+
+    try
+        let dirs = [dir1; dir2]
+        let files =
+            dirs
+            |> List.collect (fun d ->
+                Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+                |> Array.toList
+            )
+        
+        Assert.Equal(4, List.length files)
+        
+        let fileNames = files |> List.map Path.GetFileName |> List.sort
+        Assert.Contains("main.fs", fileNames)
+        Assert.Contains("util.fs", fileNames)
+        Assert.Contains("core.fs", fileNames)
+        Assert.Contains("helper.fs", fileNames)
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``parseArgs with -d single directory wraps in list`` () =
+    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "single_dir"|]
+    match parseArgs args with
+    | Ok parsed ->
+        match parsed.Target with
+        | Some (Directory dirs) ->
+            Assert.Equal(1, List.length dirs)
+            Assert.Equal("single_dir", dirs.[0])
+        | _ -> Assert.Fail("Expected Directory target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")

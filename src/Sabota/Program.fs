@@ -74,11 +74,11 @@ match cliArgs with
             | Some f, _ ->
                 let files = f.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
                 File files
-            | _, Some d -> Directory d
+            | _, Some d -> Directory [d]
             | None, None ->
                 // Fallback: use solution root as the directory target
                 printfn "Neither -f nor -d provided; using solution root (-s) as directory target."
-                Directory solutionRoot
+                Directory [solutionRoot]
 
     let mutationCategories =
         match cli.Categories with
@@ -93,7 +93,7 @@ match cliArgs with
     let target =
         match target with
         | File files -> File (List.map Path.GetFullPath files)
-        | Directory d -> Directory (Path.GetFullPath d)
+        | Directory dirs -> Directory (List.map Path.GetFullPath dirs)
 
     // Validate
     match validate testProject solutionRoot target with
@@ -105,9 +105,12 @@ match cliArgs with
     let files =
         match target with
         | File fs -> fs
-        | Directory d ->
-            Directory.GetFiles(d, "*.fs")
-            |> Array.toList
+        | Directory dirs ->
+            dirs
+            |> List.collect (fun d ->
+                Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+                |> Array.toList
+            )
 
     // Get the solution directory name for mapping in work folder
     let solutionDirName = Path.GetFileName solutionRoot

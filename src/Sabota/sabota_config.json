@@ -1,8 +1,8 @@
 {
-    "testProject": "D:\\clienti\\daniele\\progetti\\Taste\\tests\\Unit\\Unit.fsproj",
-    "solutionRoot": "D:\\clienti\\daniele\\progetti\\Taste\\",
+    "testProject": "path to your UnitTest.fsproj",
+    "solutionRoot": "path to your solution folder",
     "file": "",
-    "directory": "D:\\clienti\\daniele\\progetti\\Taste\\src\\Adapter\\",
+    "directory": "path to the directory containing the files you want to mutate",
     "categories":
     {
         "Equality": true,
