@@ -180,6 +180,10 @@ match cliArgs with
     // locations inside the work folder's solution directory
     fixProjectReferences testProject workTestPrj solutionRoot workFolder
 
+    // Copy global.json to the work folder so dotnet test uses the correct test runner
+    // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
+    copyGlobalJson solutionRoot workFolder
+
     let startTime = DateTime.Now
 
     let result =

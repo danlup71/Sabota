@@ -137,6 +137,37 @@ let fixProjectReferences (originalTestPrj: string) (workTestPrj: string) (soluti
 
     doc.Save(workTestPrj)
 
+/// Create a global.json in the work folder with the Microsoft.Testing.Platform test runner opt-in.
+/// This is required for .NET 10 SDK where VSTest target is no longer supported by MTP.
+/// We also merge any SDK settings from the solution's global.json if it exists.
+let copyGlobalJson (solutionRoot: string) (workFolder: string) : unit =
+    let targetGlobalJson = Path.Combine(workFolder, "global.json")
+    let sourceGlobalJson = Path.Combine(solutionRoot, "global.json")
+    
+    let sdkConfig =
+        if File.Exists sourceGlobalJson then
+            let sourceContent = File.ReadAllText(sourceGlobalJson)
+            // Try to parse and extract SDK settings from the source global.json
+            try
+                let parsed = System.Text.Json.JsonDocument.Parse(sourceContent)
+                let sdkElement = parsed.RootElement.GetProperty("sdk")
+                Some (System.Text.Json.JsonSerializer.Serialize(sdkElement))
+            with
+            | :? System.Text.Json.JsonException -> None
+            | _ -> None
+        else
+            None
+    
+    let json : string =
+        match sdkConfig with
+        | Some sdk ->
+            sprintf "{\"sdk\":%s,\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}" sdk
+        | None ->
+            "{\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}"
+    
+    File.WriteAllText(targetGlobalJson, json)
+    printfnColor ConsoleColor.Cyan $"global.json created in work folder: {targetGlobalJson}"
+
 /// Copy a single file to the work folder, preserving its directory structure relative to a base directory.
 /// If the file is outside the base directory, it is copied using its full path structure.
 let copyFileToWorkFolder (originalFile: string) (baseDir: string) (workDir: string) : string =
