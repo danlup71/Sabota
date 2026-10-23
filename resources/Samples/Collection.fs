@@ -1,4 +1,4 @@
-module Sample1.Collection
+module Samples.Collection
 
 let returnCollection =
     [

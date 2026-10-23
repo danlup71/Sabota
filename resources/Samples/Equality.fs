@@ -1,4 +1,4 @@
-﻿module Sample1.Equality
+﻿module Samples.Equality
 
 let compareEqual x y =
     if x = y then
