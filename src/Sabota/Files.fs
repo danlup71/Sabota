@@ -15,7 +15,7 @@ let timestamp () : string =
     sprintf "[%02d:%02d:%02d.%03d]" now.Hour now.Minute now.Second (now.Millisecond / 10)
 
 let createWorkFolder () : string =
-    let tempDir = Environment.GetEnvironmentVariable("TEMP")
+    let tempDir = Path.GetTempPath()
     let sabotaDir = Path.Combine(tempDir, "sabota")
     Directory.CreateDirectory(sabotaDir) |> ignore
 

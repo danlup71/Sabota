@@ -51,7 +51,7 @@ let ``createWorkFolder creates unique directory`` () =
 
 [<Fact>]
 let ``createWorkFolder creates sabota parent directory`` () =
-    let tempDir = Environment.GetEnvironmentVariable("TEMP")
+    let tempDir = Path.GetTempPath()
     let sabotaDir = Path.Combine(tempDir, "sabota")
     
     let workFolder = createWorkFolder ()
