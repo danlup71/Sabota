@@ -14,6 +14,11 @@ riderModule.iml
 # Visual Studio
 .vs/
 
+# publish
+bin/
+obj/
+bin
+obj
 # JetBrains Rider / IntelliJ
 .idea/
 *.sln.DotSettings.user
