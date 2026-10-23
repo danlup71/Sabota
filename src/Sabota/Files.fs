@@ -254,7 +254,7 @@ let test (filePath: string) : TestRunnerOutcome =
         TestsPassed
 
     | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
-        printfnColor ConsoleColor.DarkGreen $"  -> NOBUILD {timestamp ()}"
+        printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
         TestRunnerOutcome.BuildFailed
 
     | _ ->
