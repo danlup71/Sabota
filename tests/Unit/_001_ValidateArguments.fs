@@ -9,7 +9,7 @@ open Sabota.Args
 open TestApp
 
 [<Fact>]
-let ``parseArgs with -t -s -f returns Ok with File target`` () =
+let ``01. when command line specifies test project, solution root, and file to mutate, requirements are satisfied`` () =
     // Arrange
     "-t test.fsproj -s solution_root -f file.fs"
     |> TestApp.ParseCommandLine
@@ -22,7 +22,7 @@ let ``parseArgs with -t -s -f returns Ok with File target`` () =
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
-let ``parseArgs with -t -s -d returns Ok with Directory target`` () =
+let ``02. when command line specifies test project, solution root, and directory to mutate, requirements are satisfied`` () =
     // Arrange
     "-t test.fsproj -s solution_root -d src_dir"
     |> TestApp.ParseCommandLine
@@ -35,7 +35,7 @@ let ``parseArgs with -t -s -d returns Ok with Directory target`` () =
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
-let ``parseArgs with both -f and -d returns Error`` () =
+let ``03. when both file and directory targets are specified, conflict is reported`` () =
     // Arrange
     "-t test.fsproj -s solution_root -f file.fs -d src_dir"
     |> TestApp.ParseCommandLine
@@ -45,7 +45,7 @@ let ``parseArgs with both -f and -d returns Error`` () =
     |> TestApp.Assert_ArgsError_Contains "mutually exclusive"
 
 [<Fact>]
-let ``parseArgs with neither -f nor -d returns Ok with None target`` () =
+let ``04. when no mutation target is specified, parse succeeds with missing target`` () =
     // Arrange
     "-t test.fsproj -s solution_root"
     |> TestApp.ParseCommandLine
@@ -55,7 +55,7 @@ let ``parseArgs with neither -f nor -d returns Ok with None target`` () =
     |> TestApp.Assert_ArgsTarget_IsMissing()
 
 [<Fact>]
-let ``parseArgs missing -t returns Ok with None`` () =
+let ``05. when test project is omitted, parse succeeds without it`` () =
     // Arrange
     "-s solution_root -f file.fs"
     |> TestApp.ParseCommandLine
@@ -66,7 +66,7 @@ let ``parseArgs missing -t returns Ok with None`` () =
     |> TestApp.Assert_ArgsTestProject None
 
 [<Fact>]
-let ``parseArgs missing -s returns Ok with None`` () =
+let ``06. when solution root is omitted, parse succeeds without it`` () =
     // Arrange
     "-t test.fsproj -f file.fs"
     |> TestApp.ParseCommandLine
@@ -77,7 +77,7 @@ let ``parseArgs missing -s returns Ok with None`` () =
     |> TestApp.Assert_ArgsSolutionRoot None
 
 [<Fact>]
-let ``parseArgs with empty array returns Ok with all None`` () =
+let ``07. when no arguments are provided, parse succeeds with all values missing`` () =
     // Arrange
     ""
     |> TestApp.ParseCommandLine
@@ -89,7 +89,7 @@ let ``parseArgs with empty array returns Ok with all None`` () =
     |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
-let ``parseArgs ignores unknown arguments`` () =
+let ``08. when unknown arguments are present, they are ignored`` () =
     // Arrange
     "-t test.fsproj -s solution_root -f file.fs -x unknown"
     |> TestApp.ParseCommandLine
@@ -102,7 +102,7 @@ let ``parseArgs ignores unknown arguments`` () =
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
-let ``parseArgs accepts arguments in any order`` () =
+let ``09. when arguments are in different order, all are recognized`` () =
     // Arrange
     "-f file.fs -t test.fsproj -s solution_root"
     |> TestApp.ParseCommandLine
@@ -115,22 +115,19 @@ let ``parseArgs accepts arguments in any order`` () =
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
-let ``validate with non-existent files returns Error`` () =
-    match validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (File ["C:\\nonexistent\\file.fs"]) with
-    | Error msg ->
-        Assert.Contains("Test project not found", msg)
-        Assert.Contains("Solution root not found", msg)
-        Assert.Contains("File not found", msg)
-    | Ok _ ->
-        Assert.Fail("Expected Error for non-existent files")
+let ``10. when specified files do not exist, validation fails`` () =
+    // Arrange & Act
+    validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (File ["C:\\nonexistent\\file.fs"])
+    // Assert
+    |> TestApp.Assert_ValidateError_Contains "not found"
 
 [<Fact>]
-let ``validate with existing files returns Ok`` () =
+let ``11. when specified files exist, validation passes`` () =
     // Arrange
     let baseDir = TestApp.CreateSimulatedBaseDir()
     try
         // Act
-        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, Stub.FileFsName, baseDir)
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileFsName], [], baseDir)
         validate env.TestProject env.SolutionRoot (File [env.FileFs])
         // Assert
         |> TestApp.Assert_MinimalRequirementsMet()
@@ -138,93 +135,60 @@ let ``validate with existing files returns Ok`` () =
         TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate file without .fs extension returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileCs = Path.Combine(tempDir, "file.cs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileCs, "class Foo {}")
-
+let ``12. when a file has wrong extension, validation requires .fs`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [fileCs]) with
-        | Error msg ->
-            Assert.Contains(".fs", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-.fs file")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileCsName], [], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (File env.Files)
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains ".fs"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate test project without .fsproj extension returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.csproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
+let ``13. when test project has wrong extension, validation requires .fsproj`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [fileFs]) with
-        | Error msg ->
-            Assert.Contains(".fsproj", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-.fsproj test project")
+        let env = TestApp.CreateSimulatedEnvironment("test.csproj", Stub.SolutionRootName, [Stub.FileFsName], [], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (File env.Files)
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains ".fsproj"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate with existing directory returns Ok`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let src_dir = Path.Combine(tempDir, "src")
-    Directory.CreateDirectory(src_dir) |> ignore
-
-    File.WriteAllText(testPrj, "<Project/>")
-
+let ``14. when specified directory exists, validation passes`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (Directory [src_dir]) with
-        | Ok _ -> ()
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.DirSrcName], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (Directory env.Directories)
+        // Assert
+        |> TestApp.Assert_MinimalRequirementsMet()
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate with non-existent directory returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let nonExistentDir = Path.Combine(tempDir, "no_dir")
-
-    File.WriteAllText(testPrj, "<Project/>")
-
+let ``15. when specified directory does not exist, validation fails`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (Directory [nonExistentDir]) with
-        | Error msg ->
-            Assert.Contains("Directory not found", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-existent directory")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [], baseDir)
+        let nonExistentDir = Path.Combine(baseDir, Stub.NonExistentDirName)
+        // Act
+        validate env.TestProject env.SolutionRoot (Directory [nonExistentDir])
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains "Directory not found"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``parseAndValidate with -f resolves relative paths to absolute`` () =
+let ``16. when file target is a relative path, it is recognized`` () =
     // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
@@ -255,7 +219,7 @@ let ``parseAndValidate with -f resolves relative paths to absolute`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``parseAndValidate with -d resolves relative paths to absolute`` () =
+let ``17. when directory target is a relative path, it is recognized`` () =
     // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
@@ -286,7 +250,7 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``parseArgs with missing args returns Ok with None values`` () =
+let ``18. when only test project is provided, solution and target are missing`` () =
     // Arrange
     "-t test.fsproj"
     |> TestApp.ParseCommandLine
@@ -298,7 +262,7 @@ let ``parseArgs with missing args returns Ok with None values`` () =
     |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
-let ``parseArgs missing -s with valid files returns Ok with None`` () =
+let ``19. when solution root is missing but files are valid, parse succeeds`` () =
     // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
@@ -320,37 +284,14 @@ let ``parseArgs missing -s with valid files returns Ok with None`` () =
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``validate rejects non-existent paths`` () =
-    match validate "C:\\no\\test.fsproj" "C:\\no\\solution" (File ["C:\\no\\file.fs"]) with
-    | Error msg ->
-        Assert.Contains("not found", msg)
-    | Ok _ ->
-        Assert.Fail("Expected Error for non-existent files")
+let ``20. when paths do not exist on disk, validation reports them as not found`` () =
+    // Arrange & Act
+    validate "C:\\no\\test.fsproj" "C:\\no\\solution" (File ["C:\\no\\file.fs"])
+    // Assert
+    |> TestApp.Assert_ValidateError_Contains "not found"
 
 [<Fact>]
-let ``validate rejects -f with wrong extension`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileCs = Path.Combine(tempDir, "file.cs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileCs, "class Foo {}")
-
-    try
-        match validate testPrj solutionRoot (File [fileCs]) with
-        | Error msg ->
-            Assert.Contains(".fs", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for .cs file")
-    finally
-        Directory.Delete(tempDir, true)
-
-[<Fact>]
-let ``parseArgs with -f CSV multiple files returns Ok with File list`` () =
+let ``21. when multiple files are comma-separated, all are recognized`` () =
     // Arrange
     "-t test.fsproj -s solution_root -f file1.fs,file2.fs,file3.fs"
     |> TestApp.ParseCommandLine
@@ -361,7 +302,7 @@ let ``parseArgs with -f CSV multiple files returns Ok with File list`` () =
     |> TestApp.Assert_ArgsTarget_Contains ["file1.fs"; "file2.fs"; "file3.fs"]
 
 [<Fact>]
-let ``parseArgs with -f CSV with spaces returns Ok with trimmed files`` () =
+let ``22. when comma-separated files contain spaces, they are trimmed`` () =
     // Arrange
     "-t test.fsproj -s solution_root -f \"file1.fs , file2.fs , file3.fs\""
     |> TestApp.ParseCommandLine
@@ -372,77 +313,47 @@ let ``parseArgs with -f CSV with spaces returns Ok with trimmed files`` () =
     |> TestApp.Assert_ArgsTarget_Contains ["file1.fs"; "file2.fs"; "file3.fs"]
 
 [<Fact>]
-let ``validate with multiple files validates all`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let file1 = Path.Combine(tempDir, "file1.fs")
-    let file2 = Path.Combine(tempDir, "file2.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(file1, "let x = 1")
-    File.WriteAllText(file2, "let y = 2")
-
+let ``23. when multiple files are specified, all must exist`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [file1; file2]) with
-        | Ok _ -> ()
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName; Stub.File2FsName], [], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (File env.Files)
+        // Assert
+        |> TestApp.Assert_MinimalRequirementsMet()
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate with one non-existent file in list returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let file1 = Path.Combine(tempDir, "file1.fs")
-    let file2 = Path.Combine(tempDir, "nonexistent.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(file1, "let x = 1")
-
+let ``24. when one file in a list does not exist, validation fails`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [file1; file2]) with
-        | Error msg ->
-            Assert.Contains("File not found", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-existent file in list")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName], [], baseDir)
+        let nonExistentFile = Path.Combine(baseDir, Stub.NonExistentFsName)
+        // Act
+        validate env.TestProject env.SolutionRoot (File (env.Files @ [nonExistentFile]))
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains "File not found"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate with one wrong extension in list returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let file1 = Path.Combine(tempDir, "file1.fs")
-    let file2 = Path.Combine(tempDir, "file2.cs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(file1, "let x = 1")
-    File.WriteAllText(file2, "class Foo {}")
-
+let ``25. when one file in a list has wrong extension, validation fails`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [file1; file2]) with
-        | Error msg ->
-            Assert.Contains(".fs", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for .cs file in list")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName; Stub.FileCsName], [], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (File env.Files)
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains ".fs"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``parseArgs with only -t returns Ok with None for solution and target`` () =
+let ``26. when only test project is given, solution and target are absent`` () =
     // Arrange
     "-t test.fsproj"
     |> TestApp.ParseCommandLine
@@ -454,7 +365,7 @@ let ``parseArgs with only -t returns Ok with None for solution and target`` () =
     |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
-let ``parseArgs with only -s returns Ok with None for test project and target`` () =
+let ``27. when only solution root is given, test project and target are absent`` () =
     // Arrange
     "-s solution_root"
     |> TestApp.ParseCommandLine
@@ -466,7 +377,7 @@ let ``parseArgs with only -s returns Ok with None for test project and target`` 
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
-let ``parseArgs with no arguments returns Ok with all None`` () =
+let ``28. when command line is empty, all configuration values are absent`` () =
     // Arrange
     ""
     |> TestApp.ParseCommandLine
@@ -478,7 +389,7 @@ let ``parseArgs with no arguments returns Ok with all None`` () =
     |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
-let ``parseArgs with -d CSV multiple directories returns Ok with Directory list`` () =
+let ``29. when multiple directories are comma-separated, all are recognized`` () =
     // Arrange
     "-t test.fsproj -s solution_root -d dir1,dir2,dir3"
     |> TestApp.ParseCommandLine
@@ -489,7 +400,7 @@ let ``parseArgs with -d CSV multiple directories returns Ok with Directory list`
     |> TestApp.Assert_ArgsDirectory_Contains ["dir1"; "dir2"; "dir3"]
 
 [<Fact>]
-let ``parseArgs with -d CSV with spaces returns Ok with trimmed directories`` () =
+let ``30. when comma-separated directories contain spaces, they are trimmed`` () =
     // Arrange
     "-t test.fsproj -s solution_root -d \"dir1 , dir2 , dir3\""
     |> TestApp.ParseCommandLine
@@ -500,53 +411,34 @@ let ``parseArgs with -d CSV with spaces returns Ok with trimmed directories`` ()
     |> TestApp.Assert_ArgsDirectory_Contains ["dir1"; "dir2"; "dir3"]
 
 [<Fact>]
-let ``validate with multiple existing directories returns Ok`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let dir1 = Path.Combine(tempDir, "dir1")
-    let dir2 = Path.Combine(tempDir, "dir2")
-    Directory.CreateDirectory(dir1) |> ignore
-    Directory.CreateDirectory(dir2) |> ignore
-
-    File.WriteAllText(testPrj, "<Project/>")
-
+let ``31. when multiple directories exist, validation passes`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (Directory [dir1; dir2]) with
-        | Ok _ -> ()
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.Dir1Name; Stub.Dir2Name], baseDir)
+        // Act
+        validate env.TestProject env.SolutionRoot (Directory env.Directories)
+        // Assert
+        |> TestApp.Assert_MinimalRequirementsMet()
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``validate with one non-existent directory in list returns Error`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let dir1 = Path.Combine(tempDir, "dir1")
-    let dir2 = Path.Combine(tempDir, "nonexistent")
-    Directory.CreateDirectory(dir1) |> ignore
-
-    File.WriteAllText(testPrj, "<Project/>")
-
+let ``32. when one directory in a list does not exist, validation fails`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (Directory [dir1; dir2]) with
-        | Error msg ->
-            Assert.Contains("Directory not found", msg)
-        | Ok _ ->
-            Assert.Fail("Expected Error for non-existent directory in list")
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.Dir1Name], baseDir)
+        let nonExistentDir = Path.Combine(baseDir, Stub.NonExistentDirName)
+        // Act
+        validate env.TestProject env.SolutionRoot (Directory (env.Directories @ [nonExistentDir]))
+        // Assert
+        |> TestApp.Assert_ValidateError_Contains "Directory not found"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
-let ``Directory.GetFiles recursively discovers .fs files in subdirectories`` () =
+let ``33. when searching a directory tree, .fs files in nested folders are found`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
@@ -576,7 +468,7 @@ let ``Directory.GetFiles recursively discovers .fs files in subdirectories`` () 
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``Directory.GetFiles across multiple directories collects all .fs files`` () =
+let ``34. when searching multiple directory trees, all .fs files are collected`` () =
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
@@ -615,7 +507,7 @@ let ``Directory.GetFiles across multiple directories collects all .fs files`` ()
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``parseArgs with -d single directory wraps in list`` () =
+let ``35. when a single directory is specified, it forms a list of one`` () =
     // Arrange
     "-t test.fsproj -s solution_root -d single_dir"
     |> TestApp.ParseCommandLine

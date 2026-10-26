@@ -10,7 +10,9 @@ type SimulatedEnvironment = {
     BaseDir : string
     TestProject : string
     SolutionRoot : string
-    FileFs : string
+    FileFs : string          /// Convenience: head of Files (for backward compatibility)
+    Files : string list      /// List of created .fs (or other) file paths
+    Directories : string list /// List of created directory paths
 }
 
 type TestApp =
@@ -177,30 +179,56 @@ type TestApp =
             | Error msg ->
                 Assert.Fail($"Expected Ok, got Error: {msg}")
 
-    /// Create a simulated project environment with a test project file, a solution subdirectory, and an F# source file.
+    /// Assert that a validate result is an Error containing the expected message substring.
+    /// Returns a function ParseResult -> unit for pipeline chaining.
+    static member Assert_ValidateError_Contains(expected : string) : ParseResult -> unit =
+        fun result ->
+            match result with
+            | Error msg ->
+                Assert.Contains(expected, msg)
+            | Ok _ ->
+                Assert.Fail("Expected Error, got Ok")
+
+    /// Create a simulated project environment with a test project file, a solution subdirectory, source files, and directories.
     /// Accepts the Stub data explicitly as parameters plus the base directory path (file content is hardcoded as it is not validated).
     /// Returns a record with the paths.
     /// Example:
     ///   let baseDir = TestApp.CreateSimulatedBaseDir()
-    ///   let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, Stub.FileFsName, baseDir)
+    ///   let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileFsName], [], baseDir)
     ///   try
     ///       validate env.TestProject env.SolutionRoot (File [env.FileFs])
     ///   finally
     ///       TestApp.CleanSimulatedEnvironment baseDir
-    static member CreateSimulatedEnvironment(testProjectName : string, solutionRootName : string, fileFsName : string, baseDir : string) : SimulatedEnvironment =
+    static member CreateSimulatedEnvironment(testProjectName : string, solutionRootName : string, fileNames : string list, directoryNames : string list, baseDir : string) : SimulatedEnvironment =
         let testPrj = Path.Combine(baseDir, testProjectName)
         let solutionRoot = Path.Combine(baseDir, solutionRootName)
         Directory.CreateDirectory(solutionRoot) |> ignore
-        let fileFs = Path.Combine(baseDir, fileFsName)
+
+        let files =
+            fileNames
+            |> List.map (fun name ->
+                let path = Path.Combine(baseDir, name)
+                File.WriteAllText(path, "let x = 1")
+                path
+            )
+
+        let directories =
+            directoryNames
+            |> List.map (fun name ->
+                let path = Path.Combine(baseDir, name)
+                Directory.CreateDirectory(path) |> ignore
+                path
+            )
 
         File.WriteAllText(testPrj, "<Project/>")
-        File.WriteAllText(fileFs, "let x = 1")
 
         {
             BaseDir = baseDir
             TestProject = testPrj
             SolutionRoot = solutionRoot
-            FileFs = fileFs
+            FileFs = defaultArg (List.tryHead files) ""
+            Files = files
+            Directories = directories
         }
 
     /// Create a temporary base directory for simulated environments.
