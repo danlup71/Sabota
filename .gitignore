@@ -2,10 +2,12 @@ src/Sabota/bin/
 src/Sabota/obj/
 tests/Unit/bin/
 tests/Unit/obj/
-resources/Test1/bin/
-resources/Test1/obj/
-resources/Sample1/bin/
-resources/Sample1/obj/
+resources/UnitTest/bin/
+resources/UnitTest/obj/
+resources/Samples/bin/
+resources/Samples/obj/
+
+
 sabota_result/
 /packages/
 riderModule.iml
@@ -17,8 +19,7 @@ riderModule.iml
 # publish
 bin/
 obj/
-bin
-obj
+
 # JetBrains Rider / IntelliJ
 .idea/
 *.sln.DotSettings.user

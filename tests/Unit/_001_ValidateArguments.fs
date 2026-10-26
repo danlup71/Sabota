@@ -370,9 +370,9 @@ let ``parseArgs with -f CSV multiple files returns Ok with File list`` () =
         match parsed.Target with
         | Some (File files) ->
             Assert.Equal(3, List.length files)
-            Assert.Equal("file1.fs", files.[0])
-            Assert.Equal("file2.fs", files.[1])
-            Assert.Equal("file3.fs", files.[2])
+            Assert.Equal("file1.fs", files[0])
+            Assert.Equal("file2.fs", files[1])
+            Assert.Equal("file3.fs", files[2])
         | _ -> Assert.Fail("Expected File target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -385,9 +385,9 @@ let ``parseArgs with -f CSV with spaces returns Ok with trimmed files`` () =
         match parsed.Target with
         | Some (File files) ->
             Assert.Equal(3, List.length files)
-            Assert.Equal("file1.fs", files.[0])
-            Assert.Equal("file2.fs", files.[1])
-            Assert.Equal("file3.fs", files.[2])
+            Assert.Equal("file1.fs", files[0])
+            Assert.Equal("file2.fs", files[1])
+            Assert.Equal("file3.fs", files[2])
         | _ -> Assert.Fail("Expected File target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -504,9 +504,9 @@ let ``parseArgs with -d CSV multiple directories returns Ok with Directory list`
         match parsed.Target with
         | Some (Directory dirs) ->
             Assert.Equal(3, List.length dirs)
-            Assert.Equal("dir1", dirs.[0])
-            Assert.Equal("dir2", dirs.[1])
-            Assert.Equal("dir3", dirs.[2])
+            Assert.Equal("dir1", dirs[0])
+            Assert.Equal("dir2", dirs[1])
+            Assert.Equal("dir3", dirs[2])
         | _ -> Assert.Fail("Expected Directory target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -519,9 +519,9 @@ let ``parseArgs with -d CSV with spaces returns Ok with trimmed directories`` ()
         match parsed.Target with
         | Some (Directory dirs) ->
             Assert.Equal(3, List.length dirs)
-            Assert.Equal("dir1", dirs.[0])
-            Assert.Equal("dir2", dirs.[1])
-            Assert.Equal("dir3", dirs.[2])
+            Assert.Equal("dir1", dirs[0])
+            Assert.Equal("dir2", dirs[1])
+            Assert.Equal("dir3", dirs[2])
         | _ -> Assert.Fail("Expected Directory target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
@@ -649,7 +649,7 @@ let ``parseArgs with -d single directory wraps in list`` () =
         match parsed.Target with
         | Some (Directory dirs) ->
             Assert.Equal(1, List.length dirs)
-            Assert.Equal("single_dir", dirs.[0])
+            Assert.Equal("single_dir", dirs[0])
         | _ -> Assert.Fail("Expected Directory target")
     | Error msg ->
         Assert.Fail($"Expected Ok, got Error: {msg}")
