@@ -4,6 +4,11 @@ open System
 open System.IO
 open Xunit
 open Sabota.Args
+open Sabota.MutationTypes
+open Sabota.MutationCandidates
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text
+open FSharp.Compiler.Syntax
 
 /// A record holding the paths of a simulated project environment.
 type SimulatedEnvironment = {
@@ -336,4 +341,75 @@ type TestApp =
             let names = files |> List.map (fun f -> defaultArg (Option.ofObj (Path.GetFileName(f))) "")
             Assert.False(List.contains excluded names, $"Did not expect '{excluded}' in file names")
             files
+
+    /// Returns all MutationCategory values as a list for test use.
+    static member allMutationCategories : MutationCategory list =
+        [ Equality
+          RelationalBoundary
+          RelationalReversal
+          Boolean
+          Arithmetic
+          Conditional
+          Option
+          ReturnListValue
+          ControlFlow ]
+
+    /// Assert that the candidates list contains exactly one mutation of the given Kind.
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_MutationKind_Has (kind : MutationKind) : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            let count = candidates |> List.fold (fun acc c -> if c.Kind = kind then acc + 1 else acc) 0
+            Assert.Equal(1, count)
+            candidates
+
+    /// Assert that the candidates list contains at least one mutation of the given Kind.
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_MutationKind_Contains (kind : MutationKind) : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            let count = candidates |> List.fold (fun acc c -> if c.Kind = kind then acc + 1 else acc) 0
+            Assert.True(count >= 1, $"Expected at least 1 candidate of kind {kind}, found {count}")
+            candidates
+
+    /// Assert that the candidates list contains exactly the expected count of mutations of the given Kind.
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_MutationKind_Count (kind : MutationKind) (expected : int) : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            let count = candidates |> List.fold (fun acc c -> if c.Kind = kind then acc + 1 else acc) 0
+            Assert.Equal(expected, count)
+            candidates
+
+    /// Assert that the candidates list is empty (no mutation candidates found).
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_NoCandidates : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            Assert.Empty(candidates)
+            candidates
+
+    /// Assert that all candidates have the expected file path.
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_AllCandidatesFile (expected : string) : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            Assert.True(List.forall (fun c -> c.File = expected) candidates, $"Expected all candidates to have file '{expected}'")
+            candidates
+
+    /// Parse F# source code into a ParsedInput (parse tree) using the F# compiler service.
+    /// Creates a temporary file, parses it, and cleans up the temp file.
+    /// Example:
+    ///   let parsed = TestApp.parseSource "let x = 1"
+    static member parseSource (source: string) : ParsedInput =
+        let checker = FSharpChecker.Create()
+        let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
+        try
+            File.WriteAllText(tempFile, source)
+            let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| tempFile |] }
+            let parseResult =
+                checker.ParseFile(
+                    tempFile,
+                    SourceText.ofString source,
+                    parsingOptions)
+                |> Async.RunSynchronously
+            parseResult.ParseTree
+        finally
+            if File.Exists tempFile then
+                File.Delete(tempFile)
 

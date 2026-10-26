@@ -11,6 +11,7 @@ open Sabota.MutationCandidates
 open Sabota.Visitor
 open Sabota.MuationDefinitions
 open Sabota.Report
+open TestApp
 
 let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.RelationalBoundary
@@ -20,22 +21,6 @@ let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.ControlFlow
                            ]
 
-let parseSource (source: string) : ParsedInput =
-    let checker = FSharpChecker.Create()
-    let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
-    try
-        File.WriteAllText(tempFile, source)
-        let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| tempFile |] }
-        let parseResult =
-            checker.ParseFile(
-                tempFile,
-                SourceText.ofString source,
-                parsingOptions)
-            |> Async.RunSynchronously
-        parseResult.ParseTree
-    finally
-        if File.Exists tempFile then
-            File.Delete(tempFile)
 
 // --- US-005: Mutation status (Killed, Survived, BuildFailed) ---
 
@@ -183,7 +168,7 @@ let y = 2
     File.WriteAllText(fileFs, source)
 
     try
-        let parsed = parseSource source
+        let parsed = TestApp.parseSource source
         let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
 
@@ -271,7 +256,7 @@ let check x =
     else
         0
 """
-    let parsed = parseSource source
+    let parsed = TestApp.parseSource source
     let candidates = findMutationCandidates mutationCategories "test.fs" parsed |> List.map enrich
 
     let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)

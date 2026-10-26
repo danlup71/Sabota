@@ -1,775 +1,783 @@
 module Tests._002_DiscoverMutation
 
-open System
-open System.IO
 open Sabota.MutationTypes
 open Xunit
-open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.Text
-open FSharp.Compiler.Syntax
 open Sabota.MutationCandidates
 open Sabota.Visitor
+open TestApp
 
-let mutationCategories = [ MutationCategory.Equality
-                           MutationCategory.RelationalBoundary
-                           MutationCategory.RelationalReversal
-                           MutationCategory.Boolean
-                           MutationCategory.Arithmetic
-                           MutationCategory.Conditional
-                           MutationCategory.Option
-                           MutationCategory.ReturnListValue
-                           MutationCategory.ControlFlow
-                           ]
+let mutationCategories = TestApp.allMutationCategories
+let testFile = "test.fs"
 
-let parseSource (source: string) : ParsedInput =
-    let checker = FSharpChecker.Create()
-    let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
-    try
-        File.WriteAllText(tempFile, source)
-        let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| tempFile |] }
-        let parseResult =
-            checker.ParseFile(
-                tempFile,
-                SourceText.ofString source,
-                parsingOptions)
-            |> Async.RunSynchronously
-        parseResult.ParseTree
-    finally
-        if File.Exists tempFile then
-            File.Delete(tempFile)
 
 // --- SynExpr tests: boolean constants ---
 
 [<Fact>]
-let ``discover TrueToFalse mutation in expression`` () =
-    let source = """
-module TestModule
-let flag = true
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    Assert.Single trueToFalse
-
-[<Fact>]
-let ``discover FalseToTrue mutation in expression`` () =
-    let source = """
-module TestModule
-let flag = false
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
-    Assert.Single falseToTrue
+let ``01. discover TrueToFalse mutation in expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let flag = true
+    """    
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
 
 [<Fact>]
-let ``discover both TrueToFalse and FalseToTrue in if-then-else`` () =
-    let source = """
-module TestModule
-let check x =
-    if x = 1 then
-        true
-    else
-        false
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``02. discover FalseToTrue mutation in expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let flag = false
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.FalseToTrue
 
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
-    Assert.Single trueToFalse |> ignore
-    Assert.Single falseToTrue
+[<Fact>]
+let ``03. discover both TrueToFalse and FalseToTrue in if-then-else`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x =
+        if x = 1 then
+            true
+        else
+            false
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
+    |> TestApp.Assert_MutationKind_Has MutationKind.FalseToTrue
 
 // --- SynExpr tests: comparison operators ---
 
 [<Fact>]
-let ``discover EqualityToInequality mutation for = operator`` () =
-    let source = """
-module TestModule
-let isEqual x y = x = y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
-    Assert.Single eqToIn
-
-[<Fact>]
-let ``discover InequalityToEquality mutation for <> operator`` () =
-    let source = """
-module TestModule
-let isNotEqual x y = x <> y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let ineqToEq = candidates |> List.filter (fun c -> c.Kind = MutationKind.InequalityToEquality)
-    Assert.Single ineqToEq
+let ``04. discover EqualityToInequality mutation for = operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isEqual x y = x = y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.EqualityToInequality
 
 [<Fact>]
-let ``discover GreaterToGreaterOrEqual mutation for > operator`` () =
-    let source = """
-module TestModule
-let isGreater x y = x > y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToGreaterOrEqual)
-    Assert.Single gt
-
-[<Fact>]
-let ``discover GreaterOrEqualToGreater mutation for >= operator`` () =
-    let source = """
-module TestModule
-let isGreaterOrEqual x y = x >= y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let gte = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterOrEqualToGreater)
-    Assert.Single gte
+let ``05. discover InequalityToEquality mutation for <> operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isNotEqual x y = x <> y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.InequalityToEquality
 
 [<Fact>]
-let ``discover LessToLessOrEqual mutation for < operator`` () =
-    let source = """
-module TestModule
-let isLess x y = x < y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToLessOrEqual)
-    Assert.Single lt
+let ``06. discover GreaterToGreaterOrEqual mutation for > operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isGreater x y = x > y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToGreaterOrEqual
 
 [<Fact>]
-let ``discover LessOrEqualToLess mutation for <= operator`` () =
-    let source = """
-module TestModule
-let isLessOrEqual x y = x <= y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``07. discover GreaterOrEqualToGreater mutation for >= operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isGreaterOrEqual x y = x >= y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterOrEqualToGreater
 
-    let lte = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessOrEqualToLess)
-    Assert.Single lte
+[<Fact>]
+let ``08. discover LessToLessOrEqual mutation for < operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isLess x y = x < y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToLessOrEqual
+
+[<Fact>]
+let ``09. discover LessOrEqualToLess mutation for <= operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isLessOrEqual x y = x <= y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessOrEqualToLess
 
 // --- RelationalReversal mutation tests ---
 
 [<Fact>]
-let ``discover GreaterToLess mutation for > operator`` () =
-    let source = """
-module TestModule
-let isGreater x y = x > y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
-    Assert.Single gt
-
-[<Fact>]
-let ``discover GreaterToLessOrEqual mutation for > operator`` () =
-    let source = """
-module TestModule
-let isGreater x y = x > y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let gt = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLessOrEqual)
-    Assert.Single gt
+let ``10. discover GreaterToLess mutation for > operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isGreater x y = x > y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToLess
 
 [<Fact>]
-let ``discover LessToGreater mutation for < operator`` () =
-    let source = """
-module TestModule
-let isLess x y = x < y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
-    Assert.Single lt
-
-[<Fact>]
-let ``discover LessToGreaterOrEqual mutation for < operator`` () =
-    let source = """
-module TestModule
-let isLess x y = x < y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let lt = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreaterOrEqual)
-    Assert.Single lt
+let ``11. discover GreaterToLessOrEqual mutation for > operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isGreater x y = x > y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToLessOrEqual
 
 [<Fact>]
-let ``discover all 3 mutation candidates for > operator`` () =
-    let source = """
-module TestModule
-let isGreater x y = x > y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let greaterToGreaterOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToGreaterOrEqual)
-    let greaterToLess = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
-    let greaterToLessOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLessOrEqual)
-
-    Assert.Single greaterToGreaterOrEqual |> ignore
-    Assert.Single greaterToLess |> ignore
-    Assert.Single greaterToLessOrEqual
+let ``12. discover LessToGreater mutation for < operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isLess x y = x < y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToGreater
 
 [<Fact>]
-let ``discover all 3 mutation candidates for < operator`` () =
-    let source = """
-module TestModule
-let isLess x y = x < y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``13. discover LessToGreaterOrEqual mutation for < operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isLess x y = x < y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToGreaterOrEqual
 
-    let lessToLessOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToLessOrEqual)
-    let lessToGreater = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreater)
-    let lessToGreaterOrEqual = candidates |> List.filter (fun c -> c.Kind = MutationKind.LessToGreaterOrEqual)
+[<Fact>]
+let ``14. discover all 3 mutation candidates for > operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isGreater x y = x > y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToGreaterOrEqual
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToLess
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToLessOrEqual
 
-    Assert.Single lessToLessOrEqual |> ignore
-    Assert.Single lessToGreater |> ignore
-    Assert.Single lessToGreaterOrEqual
+[<Fact>]
+let ``15. discover all 3 mutation candidates for < operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let isLess x y = x < y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToLessOrEqual
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToGreater
+    |> TestApp.Assert_MutationKind_Has MutationKind.LessToGreaterOrEqual
 
 // --- SynExpr tests: multiple candidates in one expression ---
 
 [<Fact>]
-let ``discover multiple mutation candidates in a single function`` () =
-    let source = """
-module TestModule
-let compare x y =
-    if x = y then
-        true
-    elif x <> y then
-        false
-    else
-        true
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
-    let ineqToEq = candidates |> List.filter (fun c -> c.Kind = MutationKind.InequalityToEquality)
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-
-    Assert.Single eqToIn |> ignore
-    Assert.Single ineqToEq |> ignore
-    Assert.Equal(2, trueToFalse.Length)
+let ``16. discover multiple mutation candidates in a single function`` () =
+    // Arrange
+    """
+    module TestModule
+    let compare x y =
+        if x = y then
+            true
+        elif x <> y then
+            false
+        else
+            true
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.EqualityToInequality
+    |> TestApp.Assert_MutationKind_Has MutationKind.InequalityToEquality
+    |> TestApp.Assert_MutationKind_Count MutationKind.TrueToFalse 2
 
 // --- SynModuleDecl tests: module-level let bindings ---
 
 [<Fact>]
-let ``discover mutation in module-level let binding`` () =
-    let source = """
-module TestModule
-let result = 1 = 2
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
-    Assert.Single eqToIn
+let ``17. discover mutation in module-level let binding`` () =
+    // Arrange
+    """
+    module TestModule
+    let result = 1 = 2
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.EqualityToInequality
 
 [<Fact>]
-let ``discover mutation in module-level expression`` () =
-    let source = """
-module TestModule
-let x = 1
-let y = 2
-printfn "%b" (x = y)
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
-    Assert.Single eqToIn
+let ``18. discover mutation in module-level expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let x = 1
+    let y = 2
+    printfn "%b" (x = y)
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.EqualityToInequality
 
 // --- SynModuleDecl tests: nested modules ---
 
 [<Fact>]
-let ``discover mutation in nested module`` () =
-    let source = """
-module TestModule
-module Nested =
-    let flag = true
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    Assert.Single trueToFalse
+let ``19. discover mutation in nested module`` () =
+    // Arrange
+    """
+    module TestModule
+    module Nested =
+        let flag = true
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
 
 // --- SynMemberDefn tests: class members ---
 
 [<Fact>]
-let ``discover mutation in class member`` () =
-    let source = """
-module TestModule
-type MyClass() =
-    member this.Check(x, y) =
-        if x = y then true else false
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let eqToIn = candidates |> List.filter (fun c -> c.Kind = MutationKind.EqualityToInequality)
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
-
-    Assert.Single eqToIn |> ignore
-    Assert.Single trueToFalse |> ignore
-    Assert.Single falseToTrue
+let ``20. discover mutation in class member`` () =
+    // Arrange
+    """
+    module TestModule
+    type MyClass() =
+        member this.Check(x, y) =
+            if x = y then true else false
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.EqualityToInequality
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
+    |> TestApp.Assert_MutationKind_Has MutationKind.FalseToTrue
 
 [<Fact>]
-let ``discover mutation in class let binding`` () =
-    let source = """
-module TestModule
-type MyClass() =
-    let internalFlag = false
-    member this.GetFlag() = internalFlag
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let falseToTrue = candidates |> List.filter (fun c -> c.Kind = MutationKind.FalseToTrue)
-    Assert.Single falseToTrue
+let ``21. discover mutation in class let binding`` () =
+    // Arrange
+    """
+    module TestModule
+    type MyClass() =
+        let internalFlag = false
+        member this.GetFlag() = internalFlag
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.FalseToTrue
 
 [<Fact>]
-let ``discover mutation in auto-property with default value`` () =
-    let source = """
-module TestModule
-type Config() =
-    member val Enabled = true with get, set
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    Assert.Single trueToFalse
+let ``22. discover mutation in auto-property with default value`` () =
+    // Arrange
+    """
+    module TestModule
+    type Config() =
+        member val Enabled = true with get, set
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
 
 // --- Arithmetic mutation tests ---
 
 [<Fact>]
-let ``discover PlusToMinus mutation for + operator`` () =
-    let source = """
-module TestModule
-let add x y = x + y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
-    Assert.Single plusToMinus
-
-[<Fact>]
-let ``discover MinusToPlus mutation for - operator`` () =
-    let source = """
-module TestModule
-let subtract x y = x - y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
-    Assert.Single minusToPlus
+let ``23. discover PlusToMinus mutation for + operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let add x y = x + y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.PlusToMinus
 
 [<Fact>]
-let ``discover TimesToDivide mutation for * operator`` () =
-    let source = """
-module TestModule
-let multiply x y = x * y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let timesToDivide = candidates |> List.filter (fun c -> c.Kind = MutationKind.TimesToDivide)
-    Assert.Single timesToDivide
-
-[<Fact>]
-let ``discover DivideToTimes mutation for / operator`` () =
-    let source = """
-module TestModule
-let divide x y = x / y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let divideToTimes = candidates |> List.filter (fun c -> c.Kind = MutationKind.DivideToTimes)
-    Assert.Single divideToTimes
+let ``24. discover MinusToPlus mutation for - operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let subtract x y = x - y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.MinusToPlus
 
 [<Fact>]
-let ``discover all 4 arithmetic mutation candidates in one function`` () =
-    let source = """
-module TestModule
-let calc x y =
-    let a = x + y
-    let b = x - y
-    let c = x * y
-    let d = x / y
-    a + b + c + d
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``25. discover TimesToDivide mutation for * operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let multiply x y = x * y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TimesToDivide
 
-    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
-    let minusToPlus = candidates |> List.filter (fun c -> c.Kind = MutationKind.MinusToPlus)
-    let timesToDivide = candidates |> List.filter (fun c -> c.Kind = MutationKind.TimesToDivide)
-    let divideToTimes = candidates |> List.filter (fun c -> c.Kind = MutationKind.DivideToTimes)
+[<Fact>]
+let ``26. discover DivideToTimes mutation for / operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let divide x y = x / y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.DivideToTimes
 
-    Assert.True(plusToMinus.Length >= 1)
-    Assert.Single minusToPlus |> ignore
-    Assert.Single timesToDivide |> ignore
-    Assert.Single divideToTimes
+[<Fact>]
+let ``27. discover all 4 arithmetic mutation candidates in one function`` () =
+    // Arrange
+    """
+    module TestModule
+    let calc x y =
+        let a = x + y
+        let b = x - y
+        let c = x * y
+        let d = x / y
+        a + b + c + d
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Contains MutationKind.PlusToMinus
+    |> TestApp.Assert_MutationKind_Has MutationKind.MinusToPlus
+    |> TestApp.Assert_MutationKind_Has MutationKind.TimesToDivide
+    |> TestApp.Assert_MutationKind_Has MutationKind.DivideToTimes
 
 // --- Conditional mutation tests ---
 
 [<Fact>]
-let ``discover AndToOr mutation for && operator`` () =
-    let source = """
-module TestModule
-let check x y = x && y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
-    Assert.Single andToOr
-
-[<Fact>]
-let ``discover OrToAnd mutation for || operator`` () =
-    let source = """
-module TestModule
-let check x y = x || y
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let orToAnd = candidates |> List.filter (fun c -> c.Kind = MutationKind.OrToAnd)
-    Assert.Single orToAnd
+let ``28. discover AndToOr mutation for && operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y = x && y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.AndToOr
 
 [<Fact>]
-let ``discover both AndToOr and OrToAnd in one function`` () =
-    let source = """
-module TestModule
-let check x y z = (x && y) || z
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``29. discover OrToAnd mutation for || operator`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y = x || y
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.OrToAnd
 
-    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
-    let orToAnd = candidates |> List.filter (fun c -> c.Kind = MutationKind.OrToAnd)
-
-    Assert.Single andToOr |> ignore
-    Assert.Single orToAnd
+[<Fact>]
+let ``30. discover both AndToOr and OrToAnd in one function`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y z = (x && y) || z
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.AndToOr
+    |> TestApp.Assert_MutationKind_Has MutationKind.OrToAnd
 
 // --- Option mutation tests ---
 
 [<Fact>]
-let ``discover SomeToNone mutation for Some constructor`` () =
-    let source = """
-module TestModule
-let getValue x = Some x
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.Single someToNone
-
-[<Fact>]
-let ``discover SomeToNone mutation in Option return`` () =
-    let source = """
-module TestModule
-let tryParse x =
-    if x > 0 then Some x else None
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.Single someToNone
+let ``31. discover SomeToNone mutation for Some constructor`` () =
+    // Arrange
+    """
+    module TestModule
+    let getValue x = Some x
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.SomeToNone
 
 [<Fact>]
-let ``discover SomeToNone in nested Option expression`` () =
-    let source = """
-module TestModule
-let mapOption f opt =
-    match opt with
-    | Some x -> Some (f x)
-    | None -> None
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.True(someToNone.Length >= 1)
-
-[<Fact>]
-let ``discover SomeToNone in record update expression`` () =
-    let source = """
-module TestModule
-type User = { name: string; email: string option }
-let setEmail f email = { f with email = Some email }
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.Single someToNone
+let ``32. discover SomeToNone mutation in Option return`` () =
+    // Arrange
+    """
+    module TestModule
+    let tryParse x =
+        if x > 0 then Some x else None
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.SomeToNone
 
 [<Fact>]
-let ``discover SomeToNone in record update inside lambda pipeline`` () =
-    let source = """
-module TestModule
-type Field = { name: string; value: string option }
-let setEmail f email =
-    textField "email" "Email"
-    |> fun f -> { f with enabled = false }
-    |> fun f -> { f with value = Some email }
-and textField name label = { name = name; value = None; enabled = true }
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.Single someToNone
+let ``33. discover SomeToNone in nested Option expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let mapOption f opt =
+        match opt with
+        | Some x -> Some (f x)
+        | None -> None
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Contains MutationKind.SomeToNone
 
 [<Fact>]
-let ``discover SomeToNone with qualified Option.Some`` () =
-    let source = """
-module TestModule
-type Field = { name: string; value: string option }
-let setEmail f email = { f with value = Option.Some email }
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``34. discover SomeToNone in record update expression`` () =
+    // Arrange
+    """
+    module TestModule
+    type User = { name: string; email: string option }
+    let setEmail f email = { f with email = Some email }
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.SomeToNone
 
-    let someToNone = candidates |> List.filter (fun c -> c.Kind = MutationKind.SomeToNone)
-    Assert.Single someToNone
+[<Fact>]
+let ``35. discover SomeToNone in record update inside lambda pipeline`` () =
+    // Arrange
+    """
+    module TestModule
+    type Field = { name: string; value: string option }
+    let setEmail f email =
+        textField "email" "Email"
+        |> fun f -> { f with enabled = false }
+        |> fun f -> { f with value = Some email }
+    and textField name label = { name = name; value = None; enabled = true }
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.SomeToNone
+
+[<Fact>]
+let ``36. discover SomeToNone with qualified Option.Some`` () =
+    // Arrange
+    """
+    module TestModule
+    type Field = { name: string; value: string option }
+    let setEmail f email = { f with value = Option.Some email }
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.SomeToNone
 
 // --- Qualified operator tests ---
 
 [<Fact>]
-let ``discover PlusToMinus with qualified LanguagePrimitives.op_Addition`` () =
-    let source = """
-module TestModule
-let add x y = LanguagePrimitives.op_Addition(x, y)
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let plusToMinus = candidates |> List.filter (fun c -> c.Kind = MutationKind.PlusToMinus)
-    Assert.Single plusToMinus
-
-[<Fact>]
-let ``discover AndToOr with qualified LanguagePrimitives.op_BooleanAnd`` () =
-    let source = """
-module TestModule
-let check x y = LanguagePrimitives.op_BooleanAnd(x, y)
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let andToOr = candidates |> List.filter (fun c -> c.Kind = MutationKind.AndToOr)
-    Assert.Single andToOr
+let ``37. discover PlusToMinus with qualified LanguagePrimitives.op_Addition`` () =
+    // Arrange
+    """
+    module TestModule
+    let add x y = LanguagePrimitives.op_Addition(x, y)
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.PlusToMinus
 
 [<Fact>]
-let ``discover GreaterToLess with qualified LanguagePrimitives.op_GreaterThan`` () =
-    let source = """
-module TestModule
-let check x y = LanguagePrimitives.op_GreaterThan(x, y)
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let greaterToLess = candidates |> List.filter (fun c -> c.Kind = MutationKind.GreaterToLess)
-    Assert.Single greaterToLess
+let ``38. discover AndToOr with qualified LanguagePrimitives.op_BooleanAnd`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y = LanguagePrimitives.op_BooleanAnd(x, y)
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.AndToOr
 
 [<Fact>]
-let ``discover TrueToFalse with qualified bool true`` () =
-    let source = """
-module TestModule
-let flag = bool true
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``39. discover GreaterToLess with qualified LanguagePrimitives.op_GreaterThan`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y = LanguagePrimitives.op_GreaterThan(x, y)
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.GreaterToLess
 
-    let trueToFalse = candidates |> List.filter (fun c -> c.Kind = MutationKind.TrueToFalse)
-    Assert.Single trueToFalse
+[<Fact>]
+let ``40. discover TrueToFalse with qualified bool true`` () =
+    // Arrange
+    """
+    module TestModule
+    let flag = bool true
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.TrueToFalse
 
 // --- ReturnValue mutation tests ---
 
 [<Fact>]
-let ``discover ListReturnValueToEmpty for list expression`` () =
-    let source = """
-module TestModule
-let items = [1; 2; 3]
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
-    Assert.Single listToEmpty
-
-[<Fact>]
-let ``discover ListReturnValueToEmpty in function return`` () =
-    let source = """
-module TestModule
-let getItems x =
-    if x > 0 then [1; 2; 3] else []
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
-    Assert.Single listToEmpty
+let ``41. discover ListReturnValueToEmpty for list expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let items = [1; 2; 3]
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.ReturnListValueToEmpty
 
 [<Fact>]
-let ``discover ListReturnValueToEmpty in nested expression`` () =
-    let source = """
-module TestModule
-let process items =
-    let filtered = [for i in items do if i > 0 then yield i]
-    filtered @ [0]
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``42. discover ListReturnValueToEmpty in function return`` () =
+    // Arrange
+    """
+    module TestModule
+    let getItems x =
+        if x > 0 then [1; 2; 3] else []
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.ReturnListValueToEmpty
 
-    let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
-    Assert.True(listToEmpty.Length >= 1)
+[<Fact>]
+let ``43. discover ListReturnValueToEmpty in nested expression`` () =
+    // Arrange
+    """
+    module TestModule
+    let process items =
+        let filtered = [for i in items do if i > 0 then yield i]
+        filtered @ [0]
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Contains MutationKind.ReturnListValueToEmpty
 
 // --- Edge cases ---
 
 [<Fact>]
-let ``return empty list when no mutation candidates exist`` () =
-    let source = """
-module TestModule
-let x = 42
-let y = "hello"
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    Assert.Empty candidates
-
-[<Fact>]
-let ``candidate file path matches the input file`` () =
-    let source = """
-module TestModule
-let flag = true
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "customPath.fs" parsed
-
-    Assert.True(candidates |> List.forall (fun c -> c.File = "customPath.fs"))
+let ``44. return empty list when no mutation candidates exist`` () =
+    // Arrange
+    """
+    module TestModule
+    let x = 42
+    let y = "hello"
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_NoCandidates
 
 [<Fact>]
-let ``candidate IDs are unique and sequential`` () =
-    let source = """
-module TestModule
-let a = true
-let b = false
-let c = 1 = 2
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+let ``45. candidate file path matches the input file`` () =
+    // Arrange
+    let customFile = "customPath.fs"
+    """
+    module TestModule
+    let flag = true
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories customFile
+    // Assert
+    |> TestApp.Assert_AllCandidatesFile customFile
 
-    let ids = candidates |> List.map (fun c -> c.Id)
-    let sortedIds = ids |> List.sort
-    Assert.True((sortedIds = ids))
-    Assert.True((ids |> List.distinct |> List.length) = ids.Length)
+[<Fact>]
+let ``46. candidate IDs are unique and sequential`` () =
+    // Arrange
+    """
+    module TestModule
+    let a = true
+    let b = false
+    let c = 1 = 2
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> fun candidates ->
+        let ids = candidates |> List.map (fun c -> c.Id)
+        let sortedIds = ids |> List.sort
+        (sortedIds = ids) |> Assert.True
+        ((ids |> List.distinct |> List.length) = ids.Length) |> Assert.True
 
 // --- ControlFlow mutation tests ---
 
 [<Fact>]
-let ``discover ConditionToNotCondition in simple if-then`` () =
-    let source = """
-module TestModule
-let check x =
-    if x > 0 then
-        1
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
-    Assert.Single conditionToNot
-
-[<Fact>]
-let ``discover ConditionToNotCondition in if-then-else`` () =
-    let source = """
-module TestModule
-let check x =
-    if x > 0 then
-        1
-    else
-        0
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
-    Assert.Single conditionToNot
+let ``47. discover ConditionToNotCondition in simple if-then`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x =
+        if x > 0 then
+            1
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.ConditionToNotCondition
 
 [<Fact>]
-let ``discover NotConditionToCondition in negated if`` () =
-    let source = """
-module TestModule
-let check x =
-    if not (x > 0) then
-        1
-    else
-        0
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let notConditionToCondition = candidates |> List.filter (fun c -> c.Kind = MutationKind.NotConditionToCondition)
-    Assert.Single notConditionToCondition
-
-[<Fact>]
-let ``discover ConditionToNotCondition in nested if`` () =
-    let source = """
-module TestModule
-let check x y =
-    if x > 0 then
-        if y > 0 then
+let ``48. discover ConditionToNotCondition in if-then-else`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x =
+        if x > 0 then
             1
         else
             0
-    else
-        -1
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
-
-    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
-    Assert.Equal(2, conditionToNot.Length)
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.ConditionToNotCondition
 
 [<Fact>]
-let ``discover both ConditionToNotCondition and NotConditionToCondition`` () =
-    let source = """
-module TestModule
-let check x y =
-    if x > 0 then
-        if not (y > 0) then
+let ``49. discover NotConditionToCondition in negated if`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x =
+        if not (x > 0) then
             1
         else
             0
-"""
-    let parsed = parseSource source
-    let candidates = findMutationCandidates mutationCategories "test.fs" parsed
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.NotConditionToCondition
 
-    let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
-    let notConditionToCondition = candidates |> List.filter (fun c -> c.Kind = MutationKind.NotConditionToCondition)
-    Assert.Single conditionToNot |> ignore
-    Assert.Single notConditionToCondition
+[<Fact>]
+let ``50. discover ConditionToNotCondition in nested if`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y =
+        if x > 0 then
+            if y > 0 then
+                1
+            else
+                0
+        else
+            -1
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Count MutationKind.ConditionToNotCondition 2
+
+[<Fact>]
+let ``51. discover both ConditionToNotCondition and NotConditionToCondition`` () =
+    // Arrange
+    """
+    module TestModule
+    let check x y =
+        if x > 0 then
+            if not (y > 0) then
+                1
+            else
+                0
+    """
+    |> TestApp.parseSource
+    // Act
+    |> findMutationCandidates mutationCategories testFile
+    // Assert
+    |> TestApp.Assert_MutationKind_Has MutationKind.ConditionToNotCondition
+    |> TestApp.Assert_MutationKind_Has MutationKind.NotConditionToCondition

@@ -11,6 +11,7 @@ open FSharp.Compiler.Syntax
 open Sabota.MuationDefinitions
 open Sabota.Visitor
 open Sabota.Files
+open TestApp
 
 let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.RelationalBoundary
@@ -19,22 +20,6 @@ let mutationCategories = [ MutationCategory.Equality
                            MutationCategory.Arithmetic
                            ]
 
-let parseSource (source: string) : ParsedInput =
-    let checker = FSharpChecker.Create()
-    let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
-    try
-        File.WriteAllText(tempFile, source)
-        let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| tempFile |] }
-        let parseResult =
-            checker.ParseFile(
-                tempFile,
-                SourceText.ofString source,
-                parsingOptions)
-            |> Async.RunSynchronously
-        parseResult.ParseTree
-    finally
-        if File.Exists tempFile then
-            File.Delete(tempFile)
 
 // --- createWorkFolder tests ---
 
@@ -152,7 +137,7 @@ let ``applyMutation replaces true with false`` () =
     File.WriteAllText(fileFs, "let flag = true")
 
     try
-        let parsed = parseSource "let flag = true"
+        let parsed = TestApp.parseSource "let flag = true"
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
@@ -172,7 +157,7 @@ let ``applyMutation replaces false with true`` () =
     File.WriteAllText(fileFs, "let flag = false")
 
     try
-        let parsed = parseSource "let flag = false"
+        let parsed = TestApp.parseSource "let flag = false"
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.FalseToTrue)
         let enriched = enrich candidate
@@ -192,7 +177,7 @@ let ``applyMutation replaces = with <>`` () =
     File.WriteAllText(fileFs, "let isEqual x y = x = y")
 
     try
-        let parsed = parseSource "let isEqual x y = x = y"
+        let parsed = TestApp.parseSource "let isEqual x y = x = y"
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.EqualityToInequality)
         let enriched = enrich candidate
@@ -217,7 +202,7 @@ let ``applyMutation preserves surrounding code`` () =
     File.WriteAllText(fileFs, content)
 
     try
-        let parsed = parseSource content
+        let parsed = TestApp.parseSource content
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
@@ -243,7 +228,7 @@ let ``each mutation is applied independently with file restore`` () =
     File.WriteAllText(fileFs, originalContent)
 
     try
-        let parsed = parseSource originalContent
+        let parsed = TestApp.parseSource originalContent
         let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
@@ -285,7 +270,7 @@ let ``mutations do not interfere with each other using file restore`` () =
     File.WriteAllText(fileFs, originalContent)
 
     try
-        let parsed = parseSource originalContent
+        let parsed = TestApp.parseSource originalContent
         let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         let trueToFalse = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
@@ -340,7 +325,7 @@ let ``full cycle preserves original file across multiple mutations`` () =
     File.WriteAllText(fileFs, originalContent)
 
     try
-        let parsed = parseSource originalContent
+        let parsed = TestApp.parseSource originalContent
         let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
@@ -385,7 +370,7 @@ let ``each mutation only changes its target range with file restore`` () =
     File.WriteAllText(fileFs, originalContent)
 
     try
-        let parsed = parseSource originalContent
+        let parsed = TestApp.parseSource originalContent
         let candidates = findMutationCandidates mutationCategories fileFs parsed |> List.map enrich
 
         // Single work folder for all mutations
@@ -480,7 +465,7 @@ let ``enrich fills Original and Replacement from MutationKind`` () =
     File.WriteAllText(fileFs, source)
 
     try
-        let parsed = parseSource source
+        let parsed = TestApp.parseSource source
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
         let enriched = enrich candidate
@@ -498,7 +483,7 @@ let ``enrich preserves candidate metadata`` () =
     File.WriteAllText(fileFs, source)
 
     try
-        let parsed = parseSource source
+        let parsed = TestApp.parseSource source
         let candidates = findMutationCandidates mutationCategories fileFs parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.EqualityToInequality)
         let enriched = enrich candidate
@@ -529,7 +514,7 @@ let part = Some returnCollection[0]
     let categories = [ MutationCategory.ReturnListValue ]
 
     try
-        let parsed = parseSource source
+        let parsed = TestApp.parseSource source
         let candidates = findMutationCandidates categories fileFs parsed
         let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
         
@@ -572,7 +557,7 @@ let part = Some returnCollection[0]
     let categories = [ MutationCategory.ReturnListValue ]
 
     try
-        let parsed = parseSource source
+        let parsed = TestApp.parseSource source
         let candidates = findMutationCandidates categories fileFs parsed
         let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
         
