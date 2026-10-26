@@ -508,3 +508,88 @@ let ``enrich preserves candidate metadata`` () =
         Assert.Equal(candidate.Range, enriched.Range)
     finally
         Directory.Delete(tempDir, true)
+
+// --- ReturnListValueToEmpty mutation tests ---
+
+[<Fact>]
+let ``applyMutation ReturnListValueToEmpty preserves leading identifier`` () =
+    // Regression test: the F# compiler range for ArrayOrListComputed in indexed access
+    // may include a leading character before '[', causing the mutation to trim part of
+    // the preceding identifier (e.g., "returnCollection[0]" -> "returnCollectio[]").
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+    let fileFs = Path.Combine(tempDir, "test.fs")
+    let source = """
+module TestModule
+let returnCollection = ["item1"; "item2"]
+let part = Some returnCollection[0]
+"""
+    File.WriteAllText(fileFs, source)
+
+    let categories = [ MutationCategory.ReturnListValue ]
+
+    try
+        let parsed = parseSource source
+        let candidates = findMutationCandidates categories fileFs parsed
+        let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
+        
+        // There should be at least one candidate (the list literal or the indexed access)
+        Assert.True(listToEmpty.Length >= 1, "Expected at least one ReturnListValueToEmpty candidate")
+
+        // Apply each candidate and verify the leading identifier is preserved
+        for candidate in listToEmpty do
+            let enriched = enrich candidate
+            applyMutation enriched
+            let mutatedContent = File.ReadAllText(fileFs)
+            
+            // The full identifier "returnCollection" should be preserved, not trimmed to "returnCollectio"
+            Assert.False(mutatedContent.Contains("returnCollectio[]"), 
+                $"ReturnListValueToEmpty should not trim the leading identifier. Got: {mutatedContent}")
+            
+            // Restore original for next iteration
+            File.WriteAllText(fileFs, source)
+    finally
+        Directory.Delete(tempDir, true)
+
+[<Fact>]
+let ``applyMutation ReturnListValueToEmpty preserves leading identifier (multiline)`` () =
+    // Regression test: when the F# compiler range for ArrayOrListComputed spans
+    // multiple lines, the mutation should still preserve the leading identifier
+    // before the '[' bracket.
+    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    Directory.CreateDirectory(tempDir) |> ignore
+    let fileFs = Path.Combine(tempDir, "test.fs")
+    let source = """
+module TestModule
+let returnCollection = [
+    "item1"
+    "item2"
+]
+let part = Some returnCollection[0]
+"""
+    File.WriteAllText(fileFs, source)
+
+    let categories = [ MutationCategory.ReturnListValue ]
+
+    try
+        let parsed = parseSource source
+        let candidates = findMutationCandidates categories fileFs parsed
+        let listToEmpty = candidates |> List.filter (fun c -> c.Kind = MutationKind.ReturnListValueToEmpty)
+        
+        // There should be at least one candidate
+        Assert.True(listToEmpty.Length >= 1, "Expected at least one ReturnListValueToEmpty candidate")
+
+        // Apply each candidate and verify the leading identifier is preserved
+        for candidate in listToEmpty do
+            let enriched = enrich candidate
+            applyMutation enriched
+            let mutatedContent = File.ReadAllText(fileFs)
+            
+            // The full identifier "returnCollection" should be preserved, not trimmed
+            Assert.False(mutatedContent.Contains("returnCollectio[]"), 
+                $"ReturnListValueToEmpty multiline should not trim the leading identifier. Got: {mutatedContent}")
+            
+            // Restore original for next iteration
+            File.WriteAllText(fileFs, source)
+    finally
+        Directory.Delete(tempDir, true)

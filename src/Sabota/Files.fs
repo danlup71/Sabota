@@ -39,7 +39,7 @@ let rec copyDirectoryRecursive (sourceDir: string) (targetDir: string) : unit =
     )
 
     // Recursively copy subdirectories, excluding build artifacts and IDE folders
-    let excludedDirs = Set.ofList ["bin"; "obj"; ".git"; ".vs"; "sabota"; "CoverageResults"; "docs"; "legacy"]
+    let excludedDirs = Set.ofList ["bin"; "obj"; ".git"; ".vs"; "sabota"; "CoverageResults"; "docs"; "legacy"; "debug"; "release"]
     Directory.GetDirectories(sourceDir)
     |> Array.filter (fun dir ->
         let dirName = Path.GetFileName dir
@@ -261,21 +261,36 @@ let applyMutation (mutation: MutationCandidate) : unit =
             if trimmedEnd > 0 then rangeText.Substring(rangeText.Length - trimmedEnd, trimmedEnd)
             else ""
 
+        // For ReturnListValueToEmpty, the F# compiler range may include a leading character
+        // before the '[' (e.g., in "returnCollection[0]", the range may start at 'n' instead of '[').
+        // Find the actual '[' within the innerText and adjust the leading text accordingly.
+        let leadingExtra, actualInner =
+            if mutation.Kind = MutationTypes.MutationKind.ReturnListValueToEmpty && innerText <> "" then
+                let bracketIndex = innerText.IndexOf('[')
+                if bracketIndex > 0 then
+                    let extra = innerText.Substring(0, bracketIndex)
+                    let actual = innerText.Substring(bracketIndex)
+                    (extra, actual)
+                else
+                    ("", innerText)
+            else
+                ("", innerText)
+
         // For ControlFlow mutations, construct the replacement from the actual source text
-        if innerText <> "" then
+        if actualInner <> "" then
             match mutation.Kind with
             | MutationTypes.MutationKind.ConditionToNotCondition ->
-                replacement <- $"not ({innerText})"
+                replacement <- $"not ({actualInner})"
             | MutationTypes.MutationKind.NotConditionToCondition ->
-                replacement <- stripNot innerText
+                replacement <- stripNot actualInner
             | _ -> ()
 
-        // Keep text before the range, then leading whitespace, replacement, trailing whitespace, then after
+        // Keep text before the range, then leading whitespace, leading extra, replacement, trailing whitespace, then after
         let before = if startCol > 0 then line.Substring(0, startCol) else ""
         let after = if endCol < line.Length then line.Substring(endCol) else ""
 
-        if innerText <> "" then
-            sb.Append(before).Append(leadingWhitespace).Append(replacement).Append(trailingWhitespace).Append(after).Append('\n') |> ignore
+        if actualInner <> "" then
+            sb.Append(before).Append(leadingWhitespace).Append(leadingExtra).Append(replacement).Append(trailingWhitespace).Append(after).Append('\n') |> ignore
         else
             // Range is all whitespace, just keep it as-is
             sb.Append(line).Append('\n') |> ignore
@@ -283,7 +298,29 @@ let applyMutation (mutation: MutationCandidate) : unit =
         // multi-line replacement
         let startLineText = lines[startLine]
         let before = if startCol > 0 then startLineText.Substring(0, startCol) else ""
-        sb.Append(before).Append(replacement).Append('\n') |> ignore
+        
+        // For ReturnListValueToEmpty, preserve leading characters before '[' in multi-line case too
+        let multiLineLeadingExtra =
+            if mutation.Kind = MutationTypes.MutationKind.ReturnListValueToEmpty then
+                let rangeText =
+                    let rangeLen = min (endCol - startCol) (startLineText.Length - startCol)
+                    if startCol < startLineText.Length && rangeLen > 0 then
+                        startLineText.Substring(startCol, rangeLen)
+                    else
+                        ""
+                let trimmed = rangeText.TrimStart()
+                let leadingLen = rangeText.Length - trimmed.Length
+                let bracketIndex = trimmed.IndexOf('[')
+                if bracketIndex > 0 then
+                    rangeText.Substring(0, leadingLen + bracketIndex)
+                elif leadingLen > 0 then
+                    rangeText.Substring(0, leadingLen)
+                else
+                    ""
+            else
+                ""
+        
+        sb.Append(before).Append(multiLineLeadingExtra).Append(replacement).Append('\n') |> ignore
 
     // lines after the range
     for i in endLine + 1 .. lines.Length - 1 do

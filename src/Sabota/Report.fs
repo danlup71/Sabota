@@ -523,14 +523,56 @@ let generatePreviewMutated (source: string) (range: FSharp.Compiler.Text.Range) 
     if startLine = endLine then
         // single-line replacement
         let line = lines[startLine]
+        // For ReturnListValueToEmpty, the F# compiler range may include a leading character
+        // before the '[' (e.g., in "returnCollection[0]", the range may start at 'n' instead of '[').
+        // Find the actual '[' within the range and preserve any leading characters.
+        let leadingExtra =
+            if original = "[...]" then
+                let rangeLen = min (endCol - startCol) (line.Length - startCol)
+                let rangeText =
+                    if startCol < line.Length && rangeLen > 0 then
+                        line.Substring(startCol, rangeLen)
+                    else
+                        ""
+                let trimmed = rangeText.TrimStart()
+                let leadingLen = rangeText.Length - trimmed.Length
+                let bracketIndex = trimmed.IndexOf('[')
+                if bracketIndex > 0 then
+                    rangeText.Substring(0, leadingLen + bracketIndex)
+                elif leadingLen > 0 then
+                    rangeText.Substring(0, leadingLen)
+                else
+                    ""
+            else
+                ""
         let before = if startCol > 0 then line.Substring(0, startCol) else ""
         let after = if endCol < line.Length then line.Substring(endCol) else ""
-        sb.Append(before).Append(highlightedMutated).Append(after).Append('\n') |> ignore
+        sb.Append(before).Append(leadingExtra).Append(highlightedMutated).Append(after).Append('\n') |> ignore
     else
         // multi-line replacement
         let startLineText = lines[startLine]
+        // For ReturnListValueToEmpty, preserve leading characters before '[' in multi-line case too
+        let multiLineLeadingExtra =
+            if original = "[...]" then
+                let rangeLen = min (endCol - startCol) (startLineText.Length - startCol)
+                let rangeText =
+                    if startCol < startLineText.Length && rangeLen > 0 then
+                        startLineText.Substring(startCol, rangeLen)
+                    else
+                        ""
+                let trimmed = rangeText.TrimStart()
+                let leadingLen = rangeText.Length - trimmed.Length
+                let bracketIndex = trimmed.IndexOf('[')
+                if bracketIndex > 0 then
+                    rangeText.Substring(0, leadingLen + bracketIndex)
+                elif leadingLen > 0 then
+                    rangeText.Substring(0, leadingLen)
+                else
+                    ""
+            else
+                ""
         let before = if startCol > 0 then startLineText.Substring(0, startCol) else ""
-        sb.Append(before).Append(highlightedMutated).Append('\n') |> ignore
+        sb.Append(before).Append(multiLineLeadingExtra).Append(highlightedMutated).Append('\n') |> ignore
 
     // lines after the range
     for i in endLine + 1 .. lines.Length - 1 do

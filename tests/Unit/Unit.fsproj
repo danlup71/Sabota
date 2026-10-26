@@ -11,6 +11,7 @@
         <Compile Include="_003_IndependentMutation.fs" />
         <Compile Include="_004_Report.fs" />
         <Compile Include="_005_MutationTypesConsistency.fs" />
+        <Compile Include="_006_ExcludedDirectories.fs" />
     </ItemGroup>
 
     <ItemGroup>

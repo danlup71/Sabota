@@ -102,6 +102,12 @@ match cliArgs with
         exit 1
     | Ok _ -> ()
 
+    let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
+
+    let isExcludedFile (file: string) : bool =
+        let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
+        parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
+
     let files =
         match target with
         | File fs -> fs
@@ -109,6 +115,7 @@ match cliArgs with
             dirs
             |> List.collect (fun d ->
                 Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+                |> Array.filter (fun f -> not (isExcludedFile f))
                 |> Array.toList
             )
 
