@@ -1,7 +1,17 @@
 module TestApp
 
+open System
+open System.IO
 open Xunit
 open Sabota.Args
+
+/// A record holding the paths of a simulated project environment.
+type SimulatedEnvironment = {
+    BaseDir : string
+    TestProject : string
+    SolutionRoot : string
+    FileFs : string
+}
 
 type TestApp =
     /// Parse a human-readable command-line string into a string array.
@@ -157,4 +167,59 @@ type TestApp =
         fun parsed ->
             Assert.Equal(None, parsed.SolutionRoot)
             parsed
+
+    /// Assert that the simulated environment satisfies the minimal requirements for the application to run.
+    /// Returns a function ParseResult -> unit for pipeline chaining.
+    static member Assert_MinimalRequirementsMet() : ParseResult -> unit =
+        fun result ->
+            match result with
+            | Ok _ -> ()
+            | Error msg ->
+                Assert.Fail($"Expected Ok, got Error: {msg}")
+
+    /// Create a simulated project environment with a test project file, a solution subdirectory, and an F# source file.
+    /// Accepts the Stub data explicitly as parameters plus the base directory path (file content is hardcoded as it is not validated).
+    /// Returns a record with the paths.
+    /// Example:
+    ///   let baseDir = TestApp.CreateSimulatedBaseDir()
+    ///   let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, Stub.FileFsName, baseDir)
+    ///   try
+    ///       validate env.TestProject env.SolutionRoot (File [env.FileFs])
+    ///   finally
+    ///       TestApp.CleanSimulatedEnvironment baseDir
+    static member CreateSimulatedEnvironment(testProjectName : string, solutionRootName : string, fileFsName : string, baseDir : string) : SimulatedEnvironment =
+        let testPrj = Path.Combine(baseDir, testProjectName)
+        let solutionRoot = Path.Combine(baseDir, solutionRootName)
+        Directory.CreateDirectory(solutionRoot) |> ignore
+        let fileFs = Path.Combine(baseDir, fileFsName)
+
+        File.WriteAllText(testPrj, "<Project/>")
+        File.WriteAllText(fileFs, "let x = 1")
+
+        {
+            BaseDir = baseDir
+            TestProject = testPrj
+            SolutionRoot = solutionRoot
+            FileFs = fileFs
+        }
+
+    /// Create a temporary base directory for simulated environments.
+    /// Returns the path to the newly created empty directory.
+    /// Example:
+    ///   let baseDir = TestApp.CreateSimulatedBaseDir()
+    static member CreateSimulatedBaseDir() : string =
+        let baseDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+        Directory.CreateDirectory(baseDir) |> ignore
+        baseDir
+
+    /// Clean up a simulated project environment by deleting its base directory.
+    /// Example:
+    ///   let baseDir = TestApp.CreateSimulatedBaseDir()
+    ///   let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, Stub.FileFsName, baseDir)
+    ///   try
+    ///       validate env.TestProject env.SolutionRoot (File [env.FileFs])
+    ///   finally
+    ///       TestApp.CleanSimulatedEnvironment baseDir
+    static member CleanSimulatedEnvironment(baseDir : string) : unit =
+        Directory.Delete(baseDir, true)
 

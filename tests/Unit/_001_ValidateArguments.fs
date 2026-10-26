@@ -126,24 +126,16 @@ let ``validate with non-existent files returns Error`` () =
 
 [<Fact>]
 let ``validate with existing files returns Ok`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
     try
-        match validate testPrj solutionRoot (File [fileFs]) with
-        | Ok _ -> ()
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        // Act
+        let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, Stub.FileFsName, baseDir)
+        validate env.TestProject env.SolutionRoot (File [env.FileFs])
+        // Assert
+        |> TestApp.Assert_MinimalRequirementsMet()
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``validate file without .fs extension returns Error`` () =

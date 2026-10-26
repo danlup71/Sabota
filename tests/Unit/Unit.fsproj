@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Stub.fs" />
         <Compile Include="BaseTest.fs" />
         <Compile Include="_001_ValidateArguments.fs" />
         <Compile Include="_002_DiscoverMutation.fs" />
