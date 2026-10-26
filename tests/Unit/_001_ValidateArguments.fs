@@ -4,117 +4,113 @@ open System
 open System.IO
 open Xunit
 open Sabota.Args
+open TestApp
 
 [<Fact>]
 let ``parseArgs with -t -s -f returns Ok with File target`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
-        match parsed.Target with
-        | Some (File files) ->
-            Assert.Single(files) |> ignore
-            Assert.Equal("file.fs", List.head files)
-        | Some (Directory _) -> Assert.Fail("Expected File target")
-        | None -> Assert.Fail("Expected Some target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -f file.fs"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsTarget_Contains ["file.fs"]
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
 let ``parseArgs with -t -s -d returns Ok with Directory target`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "src_dir"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
-        match parsed.Target with
-        | Some (Directory dirs) ->
-            Assert.Single(dirs) |> ignore
-            Assert.Equal("src_dir", List.head dirs)
-        | Some (File _) -> Assert.Fail("Expected Directory target")
-        | None -> Assert.Fail("Expected Some target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -d src_dir"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsDirectory_Contains ["src_dir"]
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
 let ``parseArgs with both -f and -d returns Error`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-d"; "src_dir"|]
-    match parseArgs args with
-    | Error msg ->
-        Assert.Contains("mutually exclusive", msg)
-    | Ok _ ->
-        Assert.Fail("Expected Error when both -f and -d are provided")
+    // Arrange
+    "-t test.fsproj -s solution_root -f file.fs -d src_dir"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsError_Contains "mutually exclusive"
 
 [<Fact>]
 let ``parseArgs with neither -f nor -d returns Ok with None target`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.Target)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
 
 [<Fact>]
 let ``parseArgs missing -t returns Ok with None`` () =
-    let args = [|"-s"; "solution_root"; "-f"; "file.fs"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.TestProject)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-s solution_root -f file.fs"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsTestProject None
 
 [<Fact>]
 let ``parseArgs missing -s returns Ok with None`` () =
-    let args = [|"-t"; "test.fsproj"; "-f"; "file.fs"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.SolutionRoot)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -f file.fs"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsSolutionRoot None
 
 [<Fact>]
 let ``parseArgs with empty array returns Ok with all None`` () =
-    let args = [||]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.TestProject)
-        Assert.Equal(None, parsed.SolutionRoot)
-        Assert.Equal(None, parsed.Target)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    ""
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsTestProject_IsMissing()
+    |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
 let ``parseArgs ignores unknown arguments`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file.fs"; "-x"; "unknown"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
-        match parsed.Target with
-        | Some (File files) ->
-            Assert.Single(files) |> ignore
-            Assert.Equal("file.fs", List.head files)
-        | Some (Directory _) -> Assert.Fail("Expected File target")
-        | None -> Assert.Fail("Expected Some target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -f file.fs -x unknown"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsTarget_Contains ["file.fs"]
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
 let ``parseArgs accepts arguments in any order`` () =
-    let args = [|"-f"; "file.fs"; "-t"; "test.fsproj"; "-s"; "solution_root"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
-        match parsed.Target with
-        | Some (File files) ->
-            Assert.Single(files) |> ignore
-            Assert.Equal("file.fs", List.head files)
-        | Some (Directory _) -> Assert.Fail("Expected File target")
-        | None -> Assert.Fail("Expected Some target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-f file.fs -t test.fsproj -s solution_root"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsTarget_Contains ["file.fs"]
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
 let ``validate with non-existent files returns Error`` () =
@@ -235,6 +231,7 @@ let ``validate with non-existent directory returns Error`` () =
 
 [<Fact>]
 let ``parseAndValidate with -f resolves relative paths to absolute`` () =
+    // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
@@ -250,25 +247,22 @@ let ``parseAndValidate with -f resolves relative paths to absolute`` () =
     Environment.CurrentDirectory <- tempDir
 
     try
-        let args = [|"-t"; "test.fsproj"; "-s"; "solution"; "-f"; "file.fs"|]
-        match parseArgs args with
-        | Ok parsed ->
-            // CLI args are parsed; Program.fs resolves to absolute paths
-            Assert.Equal(Some "test.fsproj", parsed.TestProject)
-            Assert.Equal(Some "solution", parsed.SolutionRoot)
-            match parsed.Target with
-            | Some (File files) ->
-                Assert.Single(files) |> ignore
-                Assert.Equal("file.fs", List.head files)
-            | _ -> Assert.Fail("Expected File target")
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        "-t test.fsproj -s solution -f file.fs"
+        |> TestApp.ParseCommandLine
+        // Act
+        |> parseArgs
+        // Assert
+        |> TestApp.Assert_ArgsTarget_Size 1
+        |> TestApp.Assert_ArgsTarget_Contains ["file.fs"]
+        |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+        |> TestApp.Assert_ArgsSolutionRoot (Some "solution")
     finally
         Environment.CurrentDirectory <- originalDir
         Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseAndValidate with -d resolves relative paths to absolute`` () =
+    // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
@@ -284,35 +278,34 @@ let ``parseAndValidate with -d resolves relative paths to absolute`` () =
     Environment.CurrentDirectory <- tempDir
 
     try
-        let args = [|"-t"; "test.fsproj"; "-s"; "solution"; "-d"; "src"|]
-        match parseArgs args with
-        | Ok parsed ->
-            Assert.Equal(Some "test.fsproj", parsed.TestProject)
-            Assert.Equal(Some "solution", parsed.SolutionRoot)
-            match parsed.Target with
-            | Some (Directory dirs) ->
-                Assert.Single(dirs) |> ignore
-                Assert.Equal("src", List.head dirs)
-            | _ -> Assert.Fail("Expected Directory target")
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        "-t test.fsproj -s solution -d src"
+        |> TestApp.ParseCommandLine
+        // Act
+        |> parseArgs
+        // Assert
+        |> TestApp.Assert_ArgsTarget_Size 1
+        |> TestApp.Assert_ArgsDirectory_Contains ["src"]
+        |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+        |> TestApp.Assert_ArgsSolutionRoot (Some "solution")
     finally
         Environment.CurrentDirectory <- originalDir
         Directory.Delete(tempDir, true)
 
 [<Fact>]
 let ``parseArgs with missing args returns Ok with None values`` () =
-    let args = [|"-t"; "test.fsproj"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(None, parsed.SolutionRoot)
-        Assert.Equal(None, parsed.Target)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
 let ``parseArgs missing -s with valid files returns Ok with None`` () =
+    // Arrange
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
 
@@ -323,12 +316,12 @@ let ``parseArgs missing -s with valid files returns Ok with None`` () =
     File.WriteAllText(fileFs, "let x = 1")
 
     try
-        let args = [|"-t"; testPrj; "-f"; fileFs|]
-        match parseArgs args with
-        | Ok parsed ->
-            Assert.Equal(None, parsed.SolutionRoot)
-        | Error msg ->
-            Assert.Fail($"Expected Ok, got Error: {msg}")
+        [|"-t"; testPrj; "-f"; fileFs|]
+        // Act
+        |> parseArgs
+        // Assert
+        |> TestApp.Assert_ArgsTarget_Size 1
+        |> TestApp.Assert_ArgsSolutionRoot None
     finally
         Directory.Delete(tempDir, true)
 
@@ -364,33 +357,25 @@ let ``validate rejects -f with wrong extension`` () =
 
 [<Fact>]
 let ``parseArgs with -f CSV multiple files returns Ok with File list`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file1.fs,file2.fs,file3.fs"|]
-    match parseArgs args with
-    | Ok parsed ->
-        match parsed.Target with
-        | Some (File files) ->
-            Assert.Equal(3, List.length files)
-            Assert.Equal("file1.fs", files[0])
-            Assert.Equal("file2.fs", files[1])
-            Assert.Equal("file3.fs", files[2])
-        | _ -> Assert.Fail("Expected File target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -f file1.fs,file2.fs,file3.fs"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 3
+    |> TestApp.Assert_ArgsTarget_Contains ["file1.fs"; "file2.fs"; "file3.fs"]
 
 [<Fact>]
 let ``parseArgs with -f CSV with spaces returns Ok with trimmed files`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-f"; "file1.fs , file2.fs , file3.fs"|]
-    match parseArgs args with
-    | Ok parsed ->
-        match parsed.Target with
-        | Some (File files) ->
-            Assert.Equal(3, List.length files)
-            Assert.Equal("file1.fs", files[0])
-            Assert.Equal("file2.fs", files[1])
-            Assert.Equal("file3.fs", files[2])
-        | _ -> Assert.Fail("Expected File target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -f \"file1.fs , file2.fs , file3.fs\""
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 3
+    |> TestApp.Assert_ArgsTarget_Contains ["file1.fs"; "file2.fs"; "file3.fs"]
 
 [<Fact>]
 let ``validate with multiple files validates all`` () =
@@ -464,67 +449,61 @@ let ``validate with one wrong extension in list returns Error`` () =
 
 [<Fact>]
 let ``parseArgs with only -t returns Ok with None for solution and target`` () =
-    let args = [|"-t"; "test.fsproj"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(Some "test.fsproj", parsed.TestProject)
-        Assert.Equal(None, parsed.SolutionRoot)
-        Assert.Equal(None, parsed.Target)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
 let ``parseArgs with only -s returns Ok with None for test project and target`` () =
-    let args = [|"-s"; "solution_root"|]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.TestProject)
-        Assert.Equal(Some "solution_root", parsed.SolutionRoot)
-        Assert.Equal(None, parsed.Target)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-s solution_root"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsTestProject_IsMissing()
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
 
 [<Fact>]
 let ``parseArgs with no arguments returns Ok with all None`` () =
-    let args = [||]
-    match parseArgs args with
-    | Ok parsed ->
-        Assert.Equal(None, parsed.TestProject)
-        Assert.Equal(None, parsed.SolutionRoot)
-        Assert.Equal(None, parsed.Target)
-        Assert.Equal(None, parsed.Categories)
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    ""
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsTestProject_IsMissing()
+    |> TestApp.Assert_ArgsSolutionRoot_IsMissing()
 
 [<Fact>]
 let ``parseArgs with -d CSV multiple directories returns Ok with Directory list`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "dir1,dir2,dir3"|]
-    match parseArgs args with
-    | Ok parsed ->
-        match parsed.Target with
-        | Some (Directory dirs) ->
-            Assert.Equal(3, List.length dirs)
-            Assert.Equal("dir1", dirs[0])
-            Assert.Equal("dir2", dirs[1])
-            Assert.Equal("dir3", dirs[2])
-        | _ -> Assert.Fail("Expected Directory target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -d dir1,dir2,dir3"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 3
+    |> TestApp.Assert_ArgsDirectory_Contains ["dir1"; "dir2"; "dir3"]
 
 [<Fact>]
 let ``parseArgs with -d CSV with spaces returns Ok with trimmed directories`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "dir1 , dir2 , dir3"|]
-    match parseArgs args with
-    | Ok parsed ->
-        match parsed.Target with
-        | Some (Directory dirs) ->
-            Assert.Equal(3, List.length dirs)
-            Assert.Equal("dir1", dirs[0])
-            Assert.Equal("dir2", dirs[1])
-            Assert.Equal("dir3", dirs[2])
-        | _ -> Assert.Fail("Expected Directory target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -d \"dir1 , dir2 , dir3\""
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 3
+    |> TestApp.Assert_ArgsDirectory_Contains ["dir1"; "dir2"; "dir3"]
 
 [<Fact>]
 let ``validate with multiple existing directories returns Ok`` () =
@@ -643,13 +622,11 @@ let ``Directory.GetFiles across multiple directories collects all .fs files`` ()
 
 [<Fact>]
 let ``parseArgs with -d single directory wraps in list`` () =
-    let args = [|"-t"; "test.fsproj"; "-s"; "solution_root"; "-d"; "single_dir"|]
-    match parseArgs args with
-    | Ok parsed ->
-        match parsed.Target with
-        | Some (Directory dirs) ->
-            Assert.Equal(1, List.length dirs)
-            Assert.Equal("single_dir", dirs[0])
-        | _ -> Assert.Fail("Expected Directory target")
-    | Error msg ->
-        Assert.Fail($"Expected Ok, got Error: {msg}")
+    // Arrange
+    "-t test.fsproj -s solution_root -d single_dir"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsDirectory_Contains ["single_dir"]
