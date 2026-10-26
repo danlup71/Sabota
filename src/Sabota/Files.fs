@@ -39,11 +39,11 @@ let rec copyDirectoryRecursive (sourceDir: string) (targetDir: string) : unit =
     )
 
     // Recursively copy subdirectories, excluding build artifacts and IDE folders
-    let excludedDirs = Set.ofList ["bin"; "obj"; ".git"; ".vs"]
+    let excludedDirs = Set.ofList ["bin"; "obj"; ".git"; ".vs"; "sabota"; "CoverageResults"; "docs"; "legacy"]
     Directory.GetDirectories(sourceDir)
     |> Array.filter (fun dir ->
         let dirName = Path.GetFileName dir
-        not (excludedDirs.Contains dirName)
+        not (excludedDirs.Contains dirName || dirName.StartsWith('.'))
     )
     |> Array.iter (fun dir ->
         let dirName = Path.GetFileName dir
@@ -144,29 +144,31 @@ let copyGlobalJson (solutionRoot: string) (workFolder: string) : unit =
     let targetGlobalJson = Path.Combine(workFolder, "global.json")
     let sourceGlobalJson = Path.Combine(solutionRoot, "global.json")
     
-    let sdkConfig =
-        if File.Exists sourceGlobalJson then
-            let sourceContent = File.ReadAllText(sourceGlobalJson)
-            // Try to parse and extract SDK settings from the source global.json
-            try
-                let parsed = System.Text.Json.JsonDocument.Parse(sourceContent)
-                let sdkElement = parsed.RootElement.GetProperty("sdk")
-                Some (System.Text.Json.JsonSerializer.Serialize(sdkElement))
-            with
-            | :? System.Text.Json.JsonException -> None
-            | _ -> None
-        else
-            None
+    if not (File.Exists targetGlobalJson) then
     
-    let json : string =
-        match sdkConfig with
-        | Some sdk ->
-            sprintf "{\"sdk\":%s,\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}" sdk
-        | None ->
-            "{\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}"
-    
-    File.WriteAllText(targetGlobalJson, json)
-    printfnColor ConsoleColor.Cyan $"global.json created in work folder: {targetGlobalJson}"
+        let sdkConfig =
+            if File.Exists sourceGlobalJson then
+                let sourceContent = File.ReadAllText(sourceGlobalJson)
+                // Try to parse and extract SDK settings from the source global.json
+                try
+                    let parsed = System.Text.Json.JsonDocument.Parse(sourceContent)
+                    let sdkElement = parsed.RootElement.GetProperty("sdk")
+                    Some (System.Text.Json.JsonSerializer.Serialize(sdkElement))
+                with
+                | :? System.Text.Json.JsonException -> None
+                | _ -> None
+            else
+                None
+        
+        let json : string =
+            match sdkConfig with
+            | Some sdk ->
+                sprintf "{\"sdk\":%s,\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}" sdk
+            | None ->
+                "{\"test\":{\"runner\":\"Microsoft.Testing.Platform\"}}"
+        
+        File.WriteAllText(targetGlobalJson, json)
+        printfnColor ConsoleColor.Cyan $"global.json created in work folder: {targetGlobalJson}"
 
 /// Copy a single file to the work folder, preserving its directory structure relative to a base directory.
 /// If the file is outside the base directory, it is copied using its full path structure.
@@ -306,14 +308,14 @@ type TestRunnerOutcome =
     | TestsFailed
     | BuildFailed
 
-let test (filePath: string) : TestRunnerOutcome =
-    printf $"  -> testing {timestamp ()}"
+let build (filePath: string) : unit =
+    printfn $"Building test project: {filePath} {timestamp ()}"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
     let startInfo = System.Diagnostics.ProcessStartInfo()
     startInfo.FileName <- "dotnet"
-    startInfo.Arguments <- $"test {filePath}"
+    startInfo.Arguments <- $"build {filePath}"
     startInfo.UseShellExecute <- false
     startInfo.RedirectStandardOutput <- true
     startInfo.RedirectStandardError <- true
@@ -321,8 +323,38 @@ let test (filePath: string) : TestRunnerOutcome =
     use proc = System.Diagnostics.Process.Start(startInfo)
     proc.WaitForExit()
 
-    let output = proc.StandardOutput.ReadToEnd() 
-    let error = proc.StandardError.ReadToEnd() 
+    let output = proc.StandardOutput.ReadToEnd()
+    let error = proc.StandardError.ReadToEnd()
+
+    match proc.ExitCode with
+    | 0 ->
+        printfnColor ConsoleColor.DarkGreen $"  -> Build succeeded {timestamp ()}"
+    | _ ->
+        printfnColor ConsoleColor.Red $"  -> Build failed {timestamp ()}"
+        printfn $"{output}"
+        printfn $"{error}"
+        invalidArg (nameof filePath) "Initial build of test project failed"
+
+let test (filePath: string) (solutionRoot: string) : TestRunnerOutcome =
+    printf $"  -> testing {timestamp ()}"
+    if not (File.Exists filePath) then
+        invalidArg (nameof filePath) $"File not found: {filePath}"
+
+    let startInfo = System.Diagnostics.ProcessStartInfo()
+    startInfo.FileName <- "dotnet"
+    startInfo.Arguments <- $"test {filePath} --no-restore"
+    startInfo.WorkingDirectory <- solutionRoot
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
+
+    use proc = System.Diagnostics.Process.Start(startInfo)
+
+    let outputTask  = proc.StandardOutput.ReadToEndAsync() 
+    let errorTask  = proc.StandardError.ReadToEndAsync() 
+    proc.WaitForExit()
+    let output = outputTask.Result
+    let error = errorTask.Result
     
     match proc.ExitCode with
     | 0 ->

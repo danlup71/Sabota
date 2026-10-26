@@ -142,7 +142,7 @@ match cliArgs with
                 let workCandidate = { candidate with File = workFile }
                 applyMutation workCandidate
 
-                let testOutcome = test workTestPrj
+                let testOutcome = test workTestPrj solutionRoot
                 let outcome =
                     match testOutcome with
                     | TestRunnerOutcome.BuildFailed ->
@@ -183,6 +183,10 @@ match cliArgs with
     // Copy global.json to the work folder so dotnet test uses the correct test runner
     // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
     copyGlobalJson solutionRoot workFolder
+
+    // Build the test project once after copying the working tree
+    // This allows using --no-restore during mutation iterations for better performance
+    build workTestPrj
 
     let startTime = DateTime.Now
 

@@ -90,7 +90,7 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
 
     let mutationScore =
         if total = 0 then 0.0
-        else float killedCount / float total * 100.0
+        else (float killedCount + float buildFailedCount) / float total * 100.0
 
     let generatedDate = DateTime.Now.ToString("G")
     let executionTimeStr = 
