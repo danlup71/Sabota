@@ -1,3 +1,5 @@
+#nowarn "FS3261"
+
 module Sabota.Files
 
 open System
@@ -61,7 +63,10 @@ let copySolutionToWorkFolder (solutionRoot: string) (workFolder: string) : strin
     targetSolutionDir
 
 let copyProjectToWorkFolder (sourceProjectPath: string) (workFolder: string) : string =
-    let sourceDir = Path.GetDirectoryName sourceProjectPath
+    let sourceDir =
+        match Path.GetDirectoryName sourceProjectPath with
+        | null -> Environment.CurrentDirectory
+        | dir -> dir
     let sourceDirName = Path.GetFileName sourceDir
 
     let targetDir = Path.Combine(workFolder, sourceDirName)
@@ -105,7 +110,10 @@ let fixProjectReferences (originalTestPrj: string) (workTestPrj: string) (soluti
     if not (File.Exists workTestPrj) then
         invalidArg (nameof workTestPrj) $"Project file not found: {workTestPrj}"
 
-    let originalTestDir = Path.GetDirectoryName originalTestPrj
+    let originalTestDir =
+        match Path.GetDirectoryName originalTestPrj with
+        | null -> Environment.CurrentDirectory
+        | dir -> dir
     let doc = XDocument.Load(workTestPrj)
     
     // SDK-style .fsproj files don't use the MSBuild XML namespace
@@ -129,7 +137,10 @@ let fixProjectReferences (originalTestPrj: string) (workTestPrj: string) (soluti
             let workProjectPath = Path.Combine(workSolutionDir, relativeToSolution)
             
             // Finally, compute the new relative path from the copied test project to the work project.
-            let copiedTestDir = Path.GetDirectoryName workTestPrj
+            let copiedTestDir =
+                match Path.GetDirectoryName workTestPrj with
+                | null -> Environment.CurrentDirectory
+                | dir -> dir
             let newRelativePath = Path.GetRelativePath(copiedTestDir, workProjectPath)
             
             attr.Value <- newRelativePath
@@ -177,7 +188,10 @@ let copyFileToWorkFolder (originalFile: string) (baseDir: string) (workDir: stri
     let workFile = Path.Combine(workDir, relativePath)
 
     // Ensure the target directory exists
-    let workFileDir = Path.GetDirectoryName workFile
+    let workFileDir =
+        match Path.GetDirectoryName workFile with
+        | null -> Environment.CurrentDirectory
+        | dir -> dir
     if not (Directory.Exists workFileDir) then
         Directory.CreateDirectory(workFileDir) |> ignore
 

@@ -1,3 +1,5 @@
+#nowarn "FS3261"
+
 module Tests._001_ValidateArguments
 
 open System

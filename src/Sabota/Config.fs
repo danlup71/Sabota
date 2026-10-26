@@ -57,7 +57,10 @@ type ConfigDefaults = {
 }
 
 let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
-    let configDir = Path.GetDirectoryName configPath
+    let configDir =
+        match Path.GetDirectoryName configPath with
+        | null -> Environment.CurrentDirectory
+        | dir -> dir
     path.Split(',')
     |> Array.map (fun p -> p.Trim())
     |> Array.map (fun p ->
@@ -95,8 +98,10 @@ let loadConfig (configPath : string) : ConfigDefaults =
         let getStringOpt (key : string) : string option =
             let mutable elem : JsonElement = Unchecked.defaultof<JsonElement>
             if root.TryGetProperty(key, &elem) then
-                let value = elem.GetString()
-                if String.IsNullOrEmpty value then None else Some (resolvePathRelativeToConfig configPath value)
+                match elem.GetString() with
+                | null -> None
+                | value ->
+                    if String.IsNullOrEmpty value then None else Some (resolvePathRelativeToConfig configPath value)
             else
                 None
 
