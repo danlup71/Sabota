@@ -201,8 +201,13 @@ type TestApp =
     ///       TestApp.CleanSimulatedEnvironment baseDir
     static member CreateSimulatedEnvironment(testProjectName : string, solutionRootName : string, fileNames : string list, directoryNames : string list, baseDir : string) : SimulatedEnvironment =
         let testPrj = Path.Combine(baseDir, testProjectName)
-        let solutionRoot = Path.Combine(baseDir, solutionRootName)
-        Directory.CreateDirectory(solutionRoot) |> ignore
+        let solutionRoot =
+            if solutionRootName = "" then
+                ""
+            else
+                let path = Path.Combine(baseDir, solutionRootName)
+                Directory.CreateDirectory(path) |> ignore
+                path
 
         let files =
             fileNames
@@ -250,4 +255,85 @@ type TestApp =
     ///       TestApp.CleanSimulatedEnvironment baseDir
     static member CleanSimulatedEnvironment(baseDir : string) : unit =
         Directory.Delete(baseDir, true)
+
+    /// Temporarily change the current working directory and return a function to restore it.
+    /// Returns a unit -> unit function that restores the original directory.
+    /// Example:
+    ///   let restore = TestApp.SetCurrentDirectory "/some/path"
+    ///   try
+    ///       // work with relative paths
+    ///   finally
+    ///       restore()
+    static member SetCurrentDirectory(newDir : string) : unit -> unit =
+        let originalDir = Environment.CurrentDirectory
+        Environment.CurrentDirectory <- newDir
+        (fun () -> Environment.CurrentDirectory <- originalDir)
+
+    /// Create a nested directory tree with .fs files at specified relative paths.
+    /// Each tuple is (relativeSubDir, fileName) where relativeSubDir can be "" for the root.
+    /// Returns the list of absolute file paths created.
+    /// Example:
+    ///   let files = TestApp.CreateNestedFsFiles(baseDir, [("", "top.fs"); ("sub1", "mid.fs"); ("sub1/sub2", "deep.fs")])
+    static member CreateNestedFsFiles(baseDir : string, entries : (string * string) list) : string list =
+        entries
+        |> List.map (fun (subDir, fileName) ->
+            let path = Path.Combine(baseDir, subDir, fileName)
+            let parent = defaultArg (Option.ofObj (Path.GetDirectoryName(path))) baseDir
+            Directory.CreateDirectory(parent) |> ignore
+            File.WriteAllText(path, "let x = 1")
+            path
+        )
+
+    /// Create a nested directory tree with non-.fs files at specified relative paths.
+    /// Each tuple is (relativeSubDir, fileName).
+    /// Returns the list of absolute file paths created.
+    /// Example:
+    ///   let others = TestApp.CreateNestedOtherFiles(baseDir, [("sub1", "readme.txt")])
+    static member CreateNestedOtherFiles(baseDir : string, entries : (string * string) list) : string list =
+        entries
+        |> List.map (fun (subDir, fileName) ->
+            let path = Path.Combine(baseDir, subDir, fileName)
+            let parent = defaultArg (Option.ofObj (Path.GetDirectoryName(path))) baseDir
+            Directory.CreateDirectory(parent) |> ignore
+            File.WriteAllText(path, "content")
+            path
+        )
+
+    /// Recursively discover .fs files in a directory and return their full paths.
+    /// Wrapper around Directory.GetFiles for test use.
+    static member DiscoverFsFiles(directory : string) : string list =
+        Directory.GetFiles(directory, "*.fs", SearchOption.AllDirectories)
+        |> Array.toList
+
+    /// Recursively discover .fs files across multiple directories and return their full paths.
+    static member DiscoverFsFilesInDirs(directories : string list) : string list =
+        directories
+        |> List.collect (fun d ->
+            Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+            |> Array.toList
+        )
+
+    /// Assert that a list of file paths contains exactly the expected number of files.
+    /// Returns a function string list -> string list for pipeline chaining.
+    static member Assert_FileCount(expected : int) : string list -> string list =
+        fun files ->
+            Assert.Equal(expected, List.length files)
+            files
+
+    /// Assert that a list of file paths contains files with the expected names.
+    /// Returns a function string list -> string list for pipeline chaining.
+    static member Assert_FileNamesContain(expected : string list) : string list -> string list =
+        fun files ->
+            let names = files |> List.map (fun f -> defaultArg (Option.ofObj (Path.GetFileName(f))) "") |> List.sort
+            for e in expected do
+                Assert.True(List.contains e names, $"Expected '{e}' in file names")
+            files
+
+    /// Assert that a list of file paths does not contain a file with the given name.
+    /// Returns a function string list -> string list for pipeline chaining.
+    static member Assert_FileNamesNotContain(excluded : string) : string list -> string list =
+        fun files ->
+            let names = files |> List.map (fun f -> defaultArg (Option.ofObj (Path.GetFileName(f))) "")
+            Assert.False(List.contains excluded names, $"Did not expect '{excluded}' in file names")
+            files
 

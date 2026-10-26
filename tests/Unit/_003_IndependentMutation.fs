@@ -1,5 +1,3 @@
-#nowarn "FS3261"
-
 module Tests._003_IndependentMutation
 
 open System

@@ -1,5 +1,3 @@
-#nowarn "FS3261"
-
 module Sabota.Files
 
 open System

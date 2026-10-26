@@ -1,5 +1,3 @@
-#nowarn "FS3261"
-
 module Tests._001_ValidateArguments
 
 open System
@@ -190,20 +188,9 @@ let ``15. when specified directory does not exist, validation fails`` () =
 [<Fact>]
 let ``16. when file target is a relative path, it is recognized`` () =
     // Arrange
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
-    let originalDir = Environment.CurrentDirectory
-    Environment.CurrentDirectory <- tempDir
-
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileFsName], [], baseDir) |> ignore
+    let restore = TestApp.SetCurrentDirectory baseDir
     try
         "-t test.fsproj -s solution -f file.fs"
         |> TestApp.ParseCommandLine
@@ -215,26 +202,15 @@ let ``16. when file target is a relative path, it is recognized`` () =
         |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
         |> TestApp.Assert_ArgsSolutionRoot (Some "solution")
     finally
-        Environment.CurrentDirectory <- originalDir
-        Directory.Delete(tempDir, true)
+        restore()
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``17. when directory target is a relative path, it is recognized`` () =
     // Arrange
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let solutionRoot = Path.Combine(tempDir, "solution")
-    Directory.CreateDirectory(solutionRoot) |> ignore
-    let src_dir = Path.Combine(tempDir, "src")
-    Directory.CreateDirectory(src_dir) |> ignore
-
-    File.WriteAllText(testPrj, "<Project/>")
-
-    let originalDir = Environment.CurrentDirectory
-    Environment.CurrentDirectory <- tempDir
-
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.DirSrcName], baseDir) |> ignore
+    let restore = TestApp.SetCurrentDirectory baseDir
     try
         "-t test.fsproj -s solution -d src"
         |> TestApp.ParseCommandLine
@@ -246,8 +222,8 @@ let ``17. when directory target is a relative path, it is recognized`` () =
         |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
         |> TestApp.Assert_ArgsSolutionRoot (Some "solution")
     finally
-        Environment.CurrentDirectory <- originalDir
-        Directory.Delete(tempDir, true)
+        restore()
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``18. when only test project is provided, solution and target are missing`` () =
@@ -264,24 +240,18 @@ let ``18. when only test project is provided, solution and target are missing`` 
 [<Fact>]
 let ``19. when solution root is missing but files are valid, parse succeeds`` () =
     // Arrange
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    let testPrj = Path.Combine(tempDir, "test.fsproj")
-    let fileFs = Path.Combine(tempDir, "file.fs")
-
-    File.WriteAllText(testPrj, "<Project/>")
-    File.WriteAllText(fileFs, "let x = 1")
-
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, "", [Stub.FileFsName], [], baseDir)
     try
-        [|"-t"; testPrj; "-f"; fileFs|]
+        $"-t %s{env.TestProject} -f %s{env.FileFs}"
+        |> TestApp.ParseCommandLine
         // Act
         |> parseArgs
         // Assert
         |> TestApp.Assert_ArgsTarget_Size 1
         |> TestApp.Assert_ArgsSolutionRoot None
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``20. when paths do not exist on disk, validation reports them as not found`` () =
@@ -439,72 +409,37 @@ let ``32. when one directory in a list does not exist, validation fails`` () =
 
 [<Fact>]
 let ``33. when searching a directory tree, .fs files in nested folders are found`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    // Create nested structure: tempDir/src/sub1/sub2/
-    let srcDir = Path.Combine(tempDir, "src")
-    let sub1 = Path.Combine(srcDir, "sub1")
-    let sub2 = Path.Combine(sub1, "sub2")
-    Directory.CreateDirectory(sub2) |> ignore
-
-    // Create .fs files at different levels
-    File.WriteAllText(Path.Combine(srcDir, "top.fs"), "let x = 1")
-    File.WriteAllText(Path.Combine(sub1, "mid.fs"), "let y = 2")
-    File.WriteAllText(Path.Combine(sub2, "deep.fs"), "let z = 3")
-    // Create a non-.fs file that should be excluded
-    File.WriteAllText(Path.Combine(sub1, "readme.txt"), "ignore me")
-
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    let srcDir = Path.Combine(baseDir, "src")
+    TestApp.CreateNestedFsFiles(srcDir, [("", "top.fs"); ("sub1", "mid.fs"); ("sub1/sub2", "deep.fs")]) |> ignore
+    TestApp.CreateNestedOtherFiles(srcDir, [("sub1", "readme.txt")]) |> ignore
     try
-        let files = Directory.GetFiles(srcDir, "*.fs", SearchOption.AllDirectories) |> Array.toList
-        Assert.Equal(3, List.length files)
-        
-        let fileNames = files |> List.map Path.GetFileName |> List.sort
-        Assert.Contains("top.fs", fileNames)
-        Assert.Contains("mid.fs", fileNames)
-        Assert.Contains("deep.fs", fileNames)
-        Assert.False(List.contains "readme.txt" fileNames)
+        // Act
+        TestApp.DiscoverFsFiles(srcDir)
+        // Assert
+        |> TestApp.Assert_FileCount 3
+        |> TestApp.Assert_FileNamesContain ["top.fs"; "mid.fs"; "deep.fs"]
+        |> TestApp.Assert_FileNamesNotContain "readme.txt"
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``34. when searching multiple directory trees, all .fs files are collected`` () =
-    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
-    Directory.CreateDirectory(tempDir) |> ignore
-
-    // Create two separate directories with subdirectories
-    let dir1 = Path.Combine(tempDir, "project1")
-    let dir1Sub = Path.Combine(dir1, "src")
-    Directory.CreateDirectory(dir1Sub) |> ignore
-    
-    let dir2 = Path.Combine(tempDir, "project2")
-    let dir2Sub = Path.Combine(dir2, "lib")
-    Directory.CreateDirectory(dir2Sub) |> ignore
-
-    // Create .fs files in each directory tree
-    File.WriteAllText(Path.Combine(dir1, "main.fs"), "let x = 1")
-    File.WriteAllText(Path.Combine(dir1Sub, "util.fs"), "let y = 2")
-    File.WriteAllText(Path.Combine(dir2, "core.fs"), "let z = 3")
-    File.WriteAllText(Path.Combine(dir2Sub, "helper.fs"), "let w = 4")
-
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    let dir1 = Path.Combine(baseDir, "project1")
+    let dir2 = Path.Combine(baseDir, "project2")
+    TestApp.CreateNestedFsFiles(dir1, [("", "main.fs"); ("src", "util.fs")]) |> ignore
+    TestApp.CreateNestedFsFiles(dir2, [("", "core.fs"); ("lib", "helper.fs")]) |> ignore
     try
-        let dirs = [dir1; dir2]
-        let files =
-            dirs
-            |> List.collect (fun d ->
-                Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
-                |> Array.toList
-            )
-        
-        Assert.Equal(4, List.length files)
-        
-        let fileNames = files |> List.map Path.GetFileName |> List.sort
-        Assert.Contains("main.fs", fileNames)
-        Assert.Contains("util.fs", fileNames)
-        Assert.Contains("core.fs", fileNames)
-        Assert.Contains("helper.fs", fileNames)
+        // Act
+        TestApp.DiscoverFsFilesInDirs [dir1; dir2]
+        // Assert
+        |> TestApp.Assert_FileCount 4
+        |> TestApp.Assert_FileNamesContain ["main.fs"; "util.fs"; "core.fs"; "helper.fs"]
     finally
-        Directory.Delete(tempDir, true)
+        TestApp.CleanSimulatedEnvironment baseDir
 
 [<Fact>]
 let ``35. when a single directory is specified, it forms a list of one`` () =

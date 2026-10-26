@@ -23,3 +23,5 @@ obj/
 # JetBrains Rider / IntelliJ
 .idea/
 *.sln.DotSettings.user
+
+.junie/
