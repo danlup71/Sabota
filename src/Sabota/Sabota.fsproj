@@ -28,6 +28,7 @@
         <Compile Include="MutationTypes.fs" />
         <Compile Include="MutationCandidates.fs" />
         <Compile Include="MutationDefinitions.fs" />
+        <Compile Include="MultiError.fs" />
         <Compile Include="Config.fs" />
         <Compile Include="Args.fs" />
         <Compile Include="Visitor.fs" />
