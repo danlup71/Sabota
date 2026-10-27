@@ -26,8 +26,6 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
 
 // src/Sabota/bin/Debug/net10.0/Sabota.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
-let checker = FSharpChecker.Create()
-
 let loadSettings () : Result<ConfigDefaults, MultiError> =
     let config = loadConfig defaultConfigPath
 
@@ -97,155 +95,160 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
 loadSettings ()
 |> Result.bind (fun defaults ->
 
-        let mutationCategories = defaults.Categories
+    let mutationCategories = defaults.Categories
 
-        // Extract testProject and solutionRoot from defaults
-        let testProject = defaultArg defaults.TestProject "Missing testProject in defaults"
-        let solutionRoot = defaultArg defaults.SolutionRoot "Missing solutionRoot in defaults"
+    // Extract testProject and solutionRoot from defaults
+    let testProject = defaultArg defaults.TestProject "Missing testProject in defaults"
+    let solutionRoot = defaultArg defaults.SolutionRoot "Missing solutionRoot in defaults"
 
-        // Resolve to absolute paths
-        let testProject = Path.GetFullPath testProject
-        let solutionRoot = Path.GetFullPath solutionRoot
+    // Resolve to absolute paths
+    let testProject = Path.GetFullPath testProject
+    let solutionRoot = Path.GetFullPath solutionRoot
 
-        // Derive FileTarget from defaults
-        let target =
-            match defaults.File, defaults.Directory with
-            | Some files, _ ->
-                let file_list = files.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
-                File (List.map Path.GetFullPath file_list)
-            | _, Some dirs ->
-                let dir_list = dirs.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
-                Directory (List.map Path.GetFullPath dir_list)
-            | _, _ ->
-                Directory [Path.GetFullPath solutionRoot]
+    // Derive FileTarget from defaults
+    let target =
+        match defaults.File, defaults.Directory with
+        | Some files, _ ->
+            let file_list = files.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
+            File (List.map Path.GetFullPath file_list)
+        | _, Some dirs ->
+            let dir_list = dirs.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
+            Directory (List.map Path.GetFullPath dir_list)
+        | _, _ ->
+            Directory [Path.GetFullPath solutionRoot]
 
-        // Validate
-        let validationResult = validate testProject solutionRoot target
+    // Validate
+    let validationResult = validate testProject solutionRoot target
+    let validationResult' : Result<_, MultiError> =
         match validationResult with
-        | Error msg ->
-            eprintfn $"Error: %s{msg}"
-            Result.Error (GenericError msg)
-        | Ok _ ->
+        | Ok v -> Result.Ok v
+        | Error msg -> Result.Error (ValidationError msg)
 
-            let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
+    validationResult'
+    |> Result.bind (fun _ ->
 
-            let isExcludedFile (file: string) : bool =
-                let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
-                parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
+        let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
 
-            let files =
-                match target with
-                | File fs -> fs
-                | Directory dirs ->
-                    dirs
-                    |> List.collect (fun d ->
-                        Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
-                        |> Array.filter (fun f -> not (isExcludedFile f))
-                        |> Array.toList
-                    )
+        let isExcludedFile (file: string) : bool =
+            let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
+            parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
 
-            let processFile (file : string) (workFolder : string) (workTestPrj : string) : list<MutationResult> =
-                let source = File.ReadAllText(file)
+        let files =
+            match target with
+            | File fs -> fs
+            | Directory dirs ->
+                dirs
+                |> List.collect (fun d ->
+                    Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+                    |> Array.filter (fun f -> not (isExcludedFile f))
+                    |> Array.toList
+                )
 
-                printfn $"parse file: {file} {timestamp ()}"
+        let processFile (file : string) (workFolder : string) (workTestPrj : string) : list<MutationResult> =
+            let source = File.ReadAllText(file)
 
-                let parsingOptions =
-                    { FSharpParsingOptions.Default with
-                        SourceFiles = [| file |] }
+            printfn $"parse file: {file} {timestamp ()}"
 
-                let parseResult =
-                    checker.ParseFile(
-                        file,
-                        FSharp.Compiler.Text.SourceText.ofString source,
-                        parsingOptions)
-                    |> Async.RunSynchronously
+            let parsingOptions =
+                { FSharpParsingOptions.Default with
+                    SourceFiles = [| file |] }
 
-                printfn "detect mutation candidates"
+            let checker = FSharpChecker.Create()
+            
+            let parseResult =
+                checker.ParseFile(
+                    file,
+                    FSharp.Compiler.Text.SourceText.ofString source,
+                    parsingOptions)
+                |> Async.RunSynchronously
 
-                let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
+            printfn "detect mutation candidates"
 
-                // Copy the source file to the work folder (it may be outside the solution root)
-                let workFile = copyFileToWorkFolder file solutionRoot workFolder
+            let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
 
-                let results =
-                    candidates
-                    |> List.map (fun candidate ->
-                        // Apply mutation to the COPY in the work folder
-                        let workCandidate = { candidate with File = workFile }
-                        applyMutation workCandidate
+            // Copy the source file to the work folder (it may be outside the solution root)
+            let workFile = copyFileToWorkFolder file solutionRoot workFolder
 
-                        let testOutcome = test workTestPrj solutionRoot
-                        let outcome =
-                            match testOutcome with
-                            | TestRunnerOutcome.BuildFailed ->
-                                {
-                                    Status = MutationStatus.BuildFailed
-                                    Interpretation = "Build failed."
-                                }
-                            | TestRunnerOutcome.TestsFailed ->
-                                {
-                                    Status = MutationStatus.Killed
-                                    Interpretation = "Tests detected the behavioural change."
-                                }
-                            | TestRunnerOutcome.TestsPassed ->
-                                {
-                                    Status = MutationStatus.Survived
-                                    Interpretation = candidate.SurvivorInterpretation
-                                }
+            let results =
+                candidates
+                |> List.map (fun candidate ->
+                    // Apply mutation to the COPY in the work folder
+                    let workCandidate = { candidate with File = workFile }
+                    applyMutation workCandidate
 
-                        // Restore the original file in the work folder for the next mutation
-                        restoreFile file workFile
+                    let testOutcome = test workTestPrj solutionRoot
+                    let outcome =
+                        match testOutcome with
+                        | TestRunnerOutcome.BuildFailed ->
+                            {
+                                Status = MutationStatus.BuildFailed
+                                Interpretation = "Build failed."
+                            }
+                        | TestRunnerOutcome.TestsFailed ->
+                            {
+                                Status = MutationStatus.Killed
+                                Interpretation = "Tests detected the behavioural change."
+                            }
+                        | TestRunnerOutcome.TestsPassed ->
+                            {
+                                Status = MutationStatus.Survived
+                                Interpretation = candidate.SurvivorInterpretation
+                            }
 
-                        createMutationResult candidate source outcome
-                    )
+                    // Restore the original file in the work folder for the next mutation
+                    restoreFile file workFile
 
-                results
+                    createMutationResult candidate source outcome
+                )
 
-            // Create a single work folder and copy the solution once for all files
-            let workFolder = createWorkFolder ()
-            let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
+            results
 
-            // Copy the test project to the work folder (it may be outside the solution root)
-            let workTestPrj = copyProjectToWorkFolder testProject workFolder
+        // Create a single work folder and copy the solution once for all files
+        let workFolder = createWorkFolder ()
+        let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
 
-            // Fix ProjectReference paths in the copied test project so they point to the correct
-            // locations inside the work folder's solution directory
-            fixProjectReferences testProject workTestPrj solutionRoot workFolder
+        // Copy the test project to the work folder (it may be outside the solution root)
+        let workTestPrj = copyProjectToWorkFolder testProject workFolder
 
-            // Copy global.json to the work folder so dotnet test uses the correct test runner
-            // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
-            copyGlobalJson solutionRoot workFolder
+        // Fix ProjectReference paths in the copied test project so they point to the correct
+        // locations inside the work folder's solution directory
+        fixProjectReferences testProject workTestPrj solutionRoot workFolder
 
-            // Build the test project only once after copying the working tree.
-            // This allows using --no-restore during mutation iterations for better performance
-            build workTestPrj
+        // Copy global.json to the work folder so dotnet test uses the correct test runner
+        // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
+        copyGlobalJson solutionRoot workFolder
 
-            let startTime = DateTime.Now
+        // Build the test project only once after copying the working tree.
+        // This allows using --no-restore during mutation iterations for better performance
+        build workTestPrj
 
-            let result =
-                files
-                |> List.collect (fun file -> processFile file workFolder workTestPrj)
+        let startTime = DateTime.Now
 
-            let executionTime = DateTime.Now - startTime
+        let result =
+            files
+            |> List.collect (fun file -> processFile file workFolder workTestPrj)
 
-            // Clean up the work folder after all files are processed
-            deleteWorkFolder workFolder
+        let executionTime = DateTime.Now - startTime
 
-            let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
-            let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
-            let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length
-            printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
-            printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
-            printfnColor ConsoleColor.Black $"BUILD FAILED {buildFailed} !"
+        // Clean up the work folder after all files are processed
+        deleteWorkFolder workFolder
 
-            let reportPath = generateHtmlReport result executionTime
-            let forwardPath = reportPath.Replace("\\", "/")
-            let linkTarget = $"file:///%s{forwardPath}"
-            let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
-            printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
+        let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
+        let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
+        let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length
+        printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
+        printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
+        printfnColor ConsoleColor.Black $"BUILD FAILED {buildFailed} !"
 
-            exit 0
+        let reportPath = generateHtmlReport result executionTime
+        let forwardPath = reportPath.Replace("\\", "/")
+        let linkTarget = $"file:///%s{forwardPath}"
+        let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
+        printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
+
+        exit 0
     )
+)
 |> Result.mapError (fun err ->
     match err with
     | ParseError msg ->
@@ -261,6 +264,8 @@ loadSettings ()
         eprintfn $"Error: %s{msg}"
         eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
         eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
+    | ValidationError msg ->
+        eprintfn $"Validation error: %s{msg}"
     | GenericError msg ->
         eprintfn $"Error: %s{msg}"
     exit 1

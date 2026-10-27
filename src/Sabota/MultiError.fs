@@ -5,3 +5,4 @@ type MultiError =
     | ParseError of string
     | MissingTestProject of string
     | MissingSolutionRoot of string
+    | ValidationError of string
