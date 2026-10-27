@@ -431,5 +431,11 @@ let reportResults (result : MutationResult list) (executionTime : TimeSpan) : un
     let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
     printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
 
+let printError msg =
+    eprintfn $"Error: %s{msg}"
 
+let printUsage() =
+    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
+    eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
+    eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
 

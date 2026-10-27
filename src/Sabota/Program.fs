@@ -47,23 +47,14 @@ loadSettings ()
 )
 |> Result.mapError (fun err ->
     match err with
-    | ParseError msg ->
-        eprintfn $"Error: %s{msg}"
-        eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
-        eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
-        eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
-    | MissingTestProject msg ->
-        eprintfn $"Error: %s{msg}"
-        eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
-        eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
-    | MissingSolutionRoot msg ->
-        eprintfn $"Error: %s{msg}"
-        eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
-        eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
-    | ValidationError msg ->
-        eprintfn $"Validation error: %s{msg}"
+    | ParseError msg 
+    | ValidationError msg 
     | GenericError msg ->
-        eprintfn $"Error: %s{msg}"
+        printError msg
+    | MissingTestProject msg 
+    | MissingSolutionRoot msg ->
+        printError msg
+        printUsage()
     exit 1
 )
 |> ignore
