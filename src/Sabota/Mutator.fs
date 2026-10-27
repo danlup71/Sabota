@@ -1,6 +1,12 @@
 ﻿module Sabota.Mutator
+
+open System.IO
+open FSharp.Compiler.CodeAnalysis
+open Sabota.Files
+open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
 open Sabota.MutationTypes
+open Sabota.Visitor
 
 
 /// Generate a link to the file at the given line number
@@ -171,4 +177,63 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
         PreviewOriginal = generatePreviewOriginal source candidate.Range
         PreviewMutated = generatePreviewMutated source candidate.Range candidate.Original candidate.Replacement
         Link = generateLink candidate.File candidate.Range
-    }    
+    }
+    
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot  : list<MutationResult> =
+    let source = File.ReadAllText(file)
+
+    printfn $"parse file: {file} {timestamp ()}"
+
+    let parsingOptions =
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| file |] }
+
+    let checker = FSharpChecker.Create()
+    
+    let parseResult =
+        checker.ParseFile(
+            file,
+            FSharp.Compiler.Text.SourceText.ofString source,
+            parsingOptions)
+        |> Async.RunSynchronously
+
+    printfn "detect mutation candidates"
+
+    let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
+
+    // Copy the source file to the work folder (it may be outside the solution root)
+    let workFile = copyFileToWorkFolder file solutionRoot workFolder
+
+    let results =
+        candidates
+        |> List.map (fun candidate ->
+            // Apply mutation to the COPY in the work folder
+            let workCandidate = { candidate with File = workFile }
+            applyMutation workCandidate
+
+            let testOutcome = test workTestPrj solutionRoot
+            let outcome =
+                match testOutcome with
+                | TestRunnerOutcome.BuildFailed ->
+                    {
+                        Status = MutationStatus.BuildFailed
+                        Interpretation = "Build failed."
+                    }
+                | TestRunnerOutcome.TestsFailed ->
+                    {
+                        Status = MutationStatus.Killed
+                        Interpretation = "Tests detected the behavioural change."
+                    }
+                | TestRunnerOutcome.TestsPassed ->
+                    {
+                        Status = MutationStatus.Survived
+                        Interpretation = candidate.SurvivorInterpretation
+                    }
+
+            restoreFile file workFile
+
+            createMutationResult candidate source outcome
+        )
+
+    results
+    

@@ -2,6 +2,7 @@ module Sabota.Args
 
 open System
 open System.IO
+open Sabota.Config
 open Sabota.MultiError
 
 type FileTarget =
@@ -69,6 +70,73 @@ let parseArgs (args : string[]) : ParseResult =
             Target = target
             Categories = categories
         }
+
+let loadSettings () : Result<ConfigDefaults, MultiError> =
+    let config = loadConfig defaultConfigPath
+
+    let cliResult : Result<ParsedArgs, MultiError> =
+        match parseArgs (Environment.GetCommandLineArgs()) with
+        | Ok args -> Result.Ok args
+        | Error msg -> Result.Error (ParseError msg)
+
+    cliResult
+    |> Result.bind (fun cli ->
+        let testProjectOpt =
+            match cli.TestProject with
+            | Some v -> Some v
+            | None -> Some config.TestProject
+        match testProjectOpt with
+        | None -> Result.Error (MissingTestProject "Missing required argument: -t (test project). Set it via CLI or in sabota_config.json.")
+        | Some _ -> Result.Ok (cli, testProjectOpt)
+    )
+    |> Result.bind (fun (cli, testProjectOpt) ->
+        let solutionRootOpt =
+            match cli.SolutionRoot with
+            | Some v -> Some v
+            | None -> Some config.SolutionRoot
+        match solutionRootOpt with
+        | None -> Result.Error (MissingSolutionRoot "Missing required argument: -s (solution root). Set it via CLI or in sabota_config.json.")
+        | Some _ -> Result.Ok (cli, testProjectOpt, solutionRootOpt)
+    )
+    |> Result.bind (fun (cli, testProjectOpt, solutionRootOpt) ->
+        let testProject = defaultArg testProjectOpt "impossible"
+        let solutionRoot = defaultArg solutionRootOpt "impossible"
+
+        // Resolve target: CLI takes precedence, then config, then fallback to solution root
+        let fileOpt, directoryOpt =
+            match cli.Target with
+            | Some (File files) ->
+                Some (String.concat "," files), None
+            | Some (Directory dirs) ->
+                None, Some (String.concat "," dirs)
+            | None ->
+                match config.File, config.Directory with
+                | Some f, _ -> Some f, None
+                | _, Some d -> None, Some d
+                | None, None ->
+                    printfn "Neither -f nor -d provided; using solution root (-s) as directory target."
+                    None, Some solutionRoot
+
+        let mutationCategories =
+            match cli.Categories with
+            | Some cats ->
+                printfn $"Using categories from CLI argument: %s{cats}"
+                parseCategoriesString cats
+            | None -> config.Categories
+
+        // Build merged ConfigDefaults with all resolved values
+        let mergedConfig =
+            {
+                TestProject = testProject
+                SolutionRoot = solutionRoot
+                File = fileOpt
+                Directory = directoryOpt
+                Categories = mutationCategories
+            }
+
+        Result.Ok mergedConfig
+    )
+
 
 /// Check that all resolved paths exist on disk and have the correct extensions.
 let validatePaths (testProject : string) (solutionRoot : string) (target : FileTarget) : Result<ParsedArgs, MultiError> =

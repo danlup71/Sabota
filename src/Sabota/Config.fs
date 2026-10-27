@@ -6,8 +6,8 @@ open System.Text.Json
 open Sabota.MutationTypes
 
 type ConfigDefaults = {
-    TestProject : string option
-    SolutionRoot : string option
+    TestProject : string
+    SolutionRoot : string
     File : string option
     Directory : string option
     Categories : MutationCategory list
@@ -87,8 +87,8 @@ let loadConfig (configPath : string) : ConfigDefaults =
     if not (File.Exists configPath) then
         printfn $"Warning: config file not found at {configPath}, using defaults"
         {
-            TestProject = None
-            SolutionRoot = None
+            TestProject = ""
+            SolutionRoot = ""
             File = None
             Directory = None
             Categories = allCategories ()
@@ -122,8 +122,8 @@ let loadConfig (configPath : string) : ConfigDefaults =
                 allCategories ()
 
         {
-            TestProject = testProject
-            SolutionRoot = solutionRoot
+            TestProject = Option.defaultValue "" testProject
+            SolutionRoot = Option.defaultValue "" solutionRoot
             File = file
             Directory = directory
             Categories = categories

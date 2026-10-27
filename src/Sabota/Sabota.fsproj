@@ -31,9 +31,9 @@
         <Compile Include="MultiError.fs" />
         <Compile Include="Config.fs" />
         <Compile Include="Args.fs" />
+        <Compile Include="Files.fs" />
         <Compile Include="Visitor.fs" />
         <Compile Include="Mutator.fs" />
-        <Compile Include="Files.fs" />
         <Compile Include="Report.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
