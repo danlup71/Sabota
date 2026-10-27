@@ -80,10 +80,10 @@ type TestApp =
             match result with
             | Ok parsed ->
                 match parsed.Target with
-                | Some (File files) ->
+                | Some (Files files) ->
                     Assert.Equal(expected, files.Length)
                     parsed
-                | Some (Directory dirs) ->
+                | Some (Directories dirs) ->
                     Assert.Equal(expected, dirs.Length)
                     parsed
                 | None ->
@@ -98,11 +98,11 @@ type TestApp =
     static member Assert_ArgsTarget_Contains(expected : string list) : ParsedArgs -> ParsedArgs =
         fun parsed ->
             match parsed.Target with
-            | Some (File files) ->
+            | Some (Files files) ->
                 for e in expected do
                     Assert.True(List.contains e files, $"Expected '{e}' in files list")
                 parsed
-            | Some (Directory _) ->
+            | Some (Directories _) ->
                 Assert.Fail("Expected File target")
                 Unchecked.defaultof<ParsedArgs>
             | None ->
@@ -114,11 +114,11 @@ type TestApp =
     static member Assert_ArgsDirectory_Contains(expected : string list) : ParsedArgs -> ParsedArgs =
         fun parsed ->
             match parsed.Target with
-            | Some (Directory dirs) ->
+            | Some (Directories dirs) ->
                 for e in expected do
                     Assert.True(List.contains e dirs, $"Expected '{e}' in directories list")
                 parsed
-            | Some (File _) ->
+            | Some (Files _) ->
                 Assert.Fail("Expected Directory target")
                 Unchecked.defaultof<ParsedArgs>
             | None ->
@@ -705,42 +705,42 @@ type TestApp =
 
     /// Assert that a ConfigDefaults record has the expected TestProject path.
     /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_TestProject (expected : string) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_TestProject (expected : string) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.Equal(expected, config.TestProject)
             config
 
     /// Assert that a ConfigDefaults record has the expected SolutionRoot path.
     /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_SolutionRoot (expected : string) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_SolutionRoot (expected : string) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.Equal(expected, config.SolutionRoot)
             config
 
     /// Assert that a ConfigDefaults record has the expected File option.
     /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_File (expected : string option) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_File (expected : string option) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.Equal(expected, config.File)
             config
 
     /// Assert that a ConfigDefaults record has the expected Directory option.
     /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_Directory (expected : string option) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_Directory (expected : string option) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.Equal(expected, config.Directory)
             config
 
     /// Assert that a ConfigDefaults record has the expected number of categories.
     /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_Categories_Count (expected : int) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_Categories_Count (expected : int) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.Equal(expected, List.length config.Categories)
             config
 
     /// Assert that a ConfigDefaults record's categories contain the expected category.
     /// Returns a function MutationCategory -> ConfigDefaults for pipeline chaining.
-    static member Assert_Config_Categories_Contains (category : MutationCategory) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+    static member Assert_Config_Categories_Contains (category : MutationCategory) : ConfigDefaults -> ConfigDefaults =
         fun config ->
             Assert.True(List.contains category config.Categories, $"Expected category {category} in config categories")
             config

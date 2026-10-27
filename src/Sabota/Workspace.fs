@@ -3,10 +3,12 @@
 open System
 open System.IO
 open System.Xml.Linq
+open Sabota.Args
 open Sabota.Files
 open Sabota.Config
 open Sabota.MultiError
 open Sabota.MutationTypes
+open Sabota.Mutator
 
 /// Create a single work folder and copy the solution once for all files
 let createWorkFolder () : string =
@@ -171,6 +173,39 @@ let prepareWorkspace config : Result<Workspace,MultiError> =
          Folder = workFolder
          SolutionDir = config.SolutionRoot
          TestProject = workTestPrj
+         Config = config
+         Target = FileTarget.Empty()
         }
         
     Result.Ok ws
+    
+let createWorkspace (config:ConfigDefaults) =
+
+    let target = deriveFileTarget config
+
+    validatePaths config.TestProject config.SolutionRoot target
+    |> Result.bind (fun _ ->
+
+        prepareWorkspace config
+        |> Result.bind (fun ws ->
+        
+        Result.Ok {ws with Target = target}
+    ))
+            
+let runMutationAnalysis workspace :Result<RunResult,MultiError> =
+    let startTime = DateTime.Now
+
+    let result =
+        discoverFiles workspace.Target
+        |> List.collect (fun file -> processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
+                                         workspace.SolutionDir)
+
+    let executionTime = DateTime.Now - startTime
+
+    deleteWorkFolder workspace.Folder
+    
+    Result.Ok {
+        runResult = result
+        executionTime = executionTime
+    }
+    

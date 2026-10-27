@@ -417,7 +417,11 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
     Path.GetFullPath(filePath)
 
 /// Print a colored summary of mutation results and generate the HTML report
-let reportResults (result : MutationResult list) (executionTime : TimeSpan) : unit =
+let reportResults runResult : unit =
+    
+    let result = runResult.runResult
+    let executionTime = runResult.executionTime
+    
     let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
     let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
     let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length

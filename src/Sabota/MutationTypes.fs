@@ -1,5 +1,8 @@
 ﻿module Sabota.MutationTypes
 
+open System
+open System.IO
+
 type MutationCategory =
     | Equality
     | RelationalBoundary
@@ -121,8 +124,31 @@ type MutationResult =
         PreviewMutated: string
         Link: string
     }
+
+type FileTarget =
+    | Files of string list
+    | Directories of string list
+    static member Empty() : FileTarget = Files []
+
+type ConfigDefaults = {
+    TestProject : string
+    SolutionRoot : string
+    File : string option
+    Directory : string option
+    Categories : MutationCategory list
+}
+
     
 type Workspace =
     { Folder : string
       SolutionDir : string
-      TestProject : string }    
+      TestProject : string
+      Config: ConfigDefaults
+      Target: FileTarget
+    }
+    
+type RunResult =
+    {
+        runResult: MutationResult list
+        executionTime: TimeSpan
+    }

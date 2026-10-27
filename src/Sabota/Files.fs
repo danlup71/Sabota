@@ -6,6 +6,7 @@ open System.Xml.Linq
 open Sabota.Args
 open Sabota.Config
 open Sabota.MutationCandidates
+open Sabota.MutationTypes
 
 let printfnColor (color: ConsoleColor) text : 'a =
     Console.ForegroundColor <- color
@@ -77,20 +78,20 @@ let deriveFileTarget (config: ConfigDefaults) : FileTarget =
     match config.File, config.Directory with
     | Some files, _ ->
         let file_list = files.Split(',') |> Array.map _.Trim() |> Array.toList
-        File file_list
+        Files file_list
     | _, Some dirs ->
         let dir_list = dirs.Split(',') |> Array.map _.Trim() |> Array.toList
-        Directory dir_list
+        Directories dir_list
     | _, _ ->
-        Directory [config.SolutionRoot]
+        Directories [config.SolutionRoot]
 
 /// Discover all .fs files from a FileTarget, excluding build artifact directories.
 /// For File targets, returns the files as-is.
 /// For Directory targets, recursively scans for *.fs files, filtering out excluded directories.
 let discoverFiles (target: FileTarget) : string list =
     match target with
-    | File fs -> fs
-    | Directory dirs ->
+    | Files fs -> fs
+    | Directories dirs ->
         dirs
         |> List.collect (fun d ->
             Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)

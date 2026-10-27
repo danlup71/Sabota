@@ -5,13 +5,7 @@ open System.IO
 open System.Text.Json
 open Sabota.MutationTypes
 
-type ConfigDefaults = {
-    TestProject : string
-    SolutionRoot : string
-    File : string option
-    Directory : string option
-    Categories : MutationCategory list
-}
+
 
 let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota_config.json")
 

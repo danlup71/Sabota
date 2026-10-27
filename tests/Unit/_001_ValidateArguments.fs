@@ -1,7 +1,7 @@
 module Tests._001_ValidateArguments
 
-open System
 open System.IO
+open Sabota.MutationTypes
 open Xunit
 open Sabota.Args
 open TestApp
@@ -115,7 +115,7 @@ let ``09. when arguments are in different order, all are recognized`` () =
 [<Fact>]
 let ``10. when specified files do not exist, validation fails`` () =
     // Arrange & Act
-    TestApp.Validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (File ["C:\\nonexistent\\file.fs"])
+    TestApp.Validate "C:\\nonexistent\\test.fsproj" "C:\\nonexistent\\solution" (Files ["C:\\nonexistent\\file.fs"])
     // Assert
     |> TestApp.Assert_ValidateError_Contains "not found"
 
@@ -126,7 +126,7 @@ let ``11. when specified files exist, validation passes`` () =
     try
         // Act
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileFsName], [], baseDir)
-        TestApp.Validate env.TestProject env.SolutionRoot (File [env.FileFs])
+        TestApp.Validate env.TestProject env.SolutionRoot (Files [env.FileFs])
         // Assert
         |> TestApp.Assert_MinimalRequirementsMet()
     finally
@@ -139,7 +139,7 @@ let ``12. when a file has wrong extension, validation requires .fs`` () =
     try
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.FileCsName], [], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (File env.Files)
+        TestApp.Validate env.TestProject env.SolutionRoot (Files env.Files)
         // Assert
         |> TestApp.Assert_ValidateError_Contains ".fs"
     finally
@@ -152,7 +152,7 @@ let ``13. when test project has wrong extension, validation requires .fsproj`` (
     try
         let env = TestApp.CreateSimulatedEnvironment("test.csproj", Stub.SolutionRootName, [Stub.FileFsName], [], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (File env.Files)
+        TestApp.Validate env.TestProject env.SolutionRoot (Files env.Files)
         // Assert
         |> TestApp.Assert_ValidateError_Contains ".fsproj"
     finally
@@ -165,7 +165,7 @@ let ``14. when specified directory exists, validation passes`` () =
     try
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.DirSrcName], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (Directory env.Directories)
+        TestApp.Validate env.TestProject env.SolutionRoot (Directories env.Directories)
         // Assert
         |> TestApp.Assert_MinimalRequirementsMet()
     finally
@@ -179,7 +179,7 @@ let ``15. when specified directory does not exist, validation fails`` () =
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [], baseDir)
         let nonExistentDir = Path.Combine(baseDir, Stub.NonExistentDirName)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (Directory [nonExistentDir])
+        TestApp.Validate env.TestProject env.SolutionRoot (Directories [nonExistentDir])
         // Assert
         |> TestApp.Assert_ValidateError_Contains "Directory not found"
     finally
@@ -256,7 +256,7 @@ let ``19. when solution root is missing but files are valid, parse succeeds`` ()
 [<Fact>]
 let ``20. when paths do not exist on disk, validation reports them as not found`` () =
     // Arrange & Act
-    TestApp.Validate "C:\\no\\test.fsproj" "C:\\no\\solution" (File ["C:\\no\\file.fs"])
+    TestApp.Validate "C:\\no\\test.fsproj" "C:\\no\\solution" (Files ["C:\\no\\file.fs"])
     // Assert
     |> TestApp.Assert_ValidateError_Contains "not found"
 
@@ -289,7 +289,7 @@ let ``23. when multiple files are specified, all must exist`` () =
     try
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName; Stub.File2FsName], [], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (File env.Files)
+        TestApp.Validate env.TestProject env.SolutionRoot (Files env.Files)
         // Assert
         |> TestApp.Assert_MinimalRequirementsMet()
     finally
@@ -303,7 +303,7 @@ let ``24. when one file in a list does not exist, validation fails`` () =
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName], [], baseDir)
         let nonExistentFile = Path.Combine(baseDir, Stub.NonExistentFsName)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (File (env.Files @ [nonExistentFile]))
+        TestApp.Validate env.TestProject env.SolutionRoot (Files (env.Files @ [nonExistentFile]))
         // Assert
         |> TestApp.Assert_ValidateError_Contains "File not found"
     finally
@@ -316,7 +316,7 @@ let ``25. when one file in a list has wrong extension, validation fails`` () =
     try
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [Stub.File1FsName; Stub.FileCsName], [], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (File env.Files)
+        TestApp.Validate env.TestProject env.SolutionRoot (Files env.Files)
         // Assert
         |> TestApp.Assert_ValidateError_Contains ".fs"
     finally
@@ -387,7 +387,7 @@ let ``31. when multiple directories exist, validation passes`` () =
     try
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.Dir1Name; Stub.Dir2Name], baseDir)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (Directory env.Directories)
+        TestApp.Validate env.TestProject env.SolutionRoot (Directories env.Directories)
         // Assert
         |> TestApp.Assert_MinimalRequirementsMet()
     finally
@@ -401,7 +401,7 @@ let ``32. when one directory in a list does not exist, validation fails`` () =
         let env = TestApp.CreateSimulatedEnvironment(Stub.TestProjectName, Stub.SolutionRootName, [], [Stub.Dir1Name], baseDir)
         let nonExistentDir = Path.Combine(baseDir, Stub.NonExistentDirName)
         // Act
-        TestApp.Validate env.TestProject env.SolutionRoot (Directory (env.Directories @ [nonExistentDir]))
+        TestApp.Validate env.TestProject env.SolutionRoot (Directories (env.Directories @ [nonExistentDir]))
         // Assert
         |> TestApp.Assert_ValidateError_Contains "Directory not found"
     finally

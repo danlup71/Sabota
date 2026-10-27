@@ -4,10 +4,7 @@ open System
 open System.IO
 open Sabota.Config
 open Sabota.MultiError
-
-type FileTarget =
-    | File of string list
-    | Directory of string list
+open Sabota.MutationTypes
 
 type ParsedArgs = {
     TestProject : string option
@@ -59,8 +56,8 @@ let parseArgs (args : string[]) : ParseResult =
     else
         let target =
             match filePath, directoryPath with
-            | Some fs, None -> Some (File fs)
-            | None, Some ds -> Some (Directory ds)
+            | Some fs, None -> Some (Files fs)
+            | None, Some ds -> Some (Directories ds)
             | None, None -> None
             | _, _ -> None
 
@@ -105,10 +102,10 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
         // Resolve target: CLI takes precedence, then config, then fallback to solution root
         let fileOpt, directoryOpt =
             match cli.Target with
-            | Some (File files) ->
+            | Some (Files files) ->
                 let abs_files = List.map Path.GetFullPath files
                 Some (String.concat "," abs_files), None
-            | Some (Directory dirs) ->
+            | Some (Directories dirs) ->
                 let abs_dirs = List.map Path.GetFullPath dirs
                 None, Some (String.concat "," abs_dirs)
             | None ->
@@ -151,13 +148,13 @@ let validatePaths (testProject : string) (solutionRoot : string) (target : FileT
             if not (Directory.Exists solutionRoot) then
                 $"Solution root not found: {solutionRoot}"
             match target with
-            | File files ->
+            | Files files ->
                 for f in files do
                     if not (File.Exists f) then
                         $"File not found: {f}"
                     elif not (f.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)) then
                         $"File must be an F# source file (.fs): {f}"
-            | Directory dirs ->
+            | Directories dirs ->
                 for d in dirs do
                     if not (Directory.Exists d) then
                         $"Directory not found: {d}"

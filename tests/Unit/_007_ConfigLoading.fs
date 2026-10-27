@@ -6,6 +6,7 @@ open Xunit
 open Sabota.MutationTypes
 open TestApp
 
+
 [<Fact>]
 let ``01. when config file does not exist, returns empty defaults`` () =
     // Arrange
