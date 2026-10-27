@@ -3,9 +3,7 @@ module Tests._004_Report
 open System
 open System.IO
 open Xunit
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
-open FSharp.Compiler.Syntax
 open Sabota.MutationTypes
 open Sabota.MutationCandidates
 open Sabota.Visitor
@@ -13,36 +11,30 @@ open Sabota.MuationDefinitions
 open Sabota.Report
 open TestApp
 
-let mutationCategories = [ MutationCategory.Equality
-                           MutationCategory.RelationalBoundary
-                           MutationCategory.RelationalReversal
-                           MutationCategory.Boolean
-                           MutationCategory.Arithmetic
-                           MutationCategory.ControlFlow
-                           ]
+let mutationCategories = Stub.AllMutationCategories
 
 
 // --- US-005: Mutation status (Killed, Survived, BuildFailed) ---
 
 [<Fact>]
-let ``MutationStatus has Killed case`` () =
+let ``01. MutationStatus has Killed case`` () =
     let outcome = { Status = Killed; Interpretation = "Tests detected the change." }
     Assert.Equal(Killed, outcome.Status)
 
 [<Fact>]
-let ``MutationStatus has Survived case`` () =
+let ``02. MutationStatus has Survived case`` () =
     let outcome = { Status = Survived; Interpretation = "Tests did not detect the change." }
     Assert.Equal(Survived, outcome.Status)
 
 [<Fact>]
-let ``MutationStatus has BuildFailed case`` () =
+let ``03. MutationStatus has BuildFailed case`` () =
     let outcome = { Status = BuildFailed; Interpretation = "Build failed." }
     Assert.Equal(BuildFailed, outcome.Status)
 
 // --- US-006: Link to surviving mutation location ---
 
 [<Fact>]
-let ``generateLink produces file URL with line number`` () =
+let ``04. generateLink produces file URL with line number`` () =
     let file = "SampleProject/Calculator.fs"
     let range = Range.mkRange file (Position.mkPos 42 13) (Position.mkPos 42 14)
     let link = generateLink file range
@@ -50,7 +42,7 @@ let ``generateLink produces file URL with line number`` () =
     Assert.Contains("L42", link)
 
 [<Fact>]
-let ``generateLink uses StartLine from range`` () =
+let ``05. generateLink uses StartLine from range`` () =
     let file = "test.fs"
     let range = Range.mkRange file (Position.mkPos 5 1) (Position.mkPos 5 10)
     let link = generateLink file range
@@ -59,28 +51,28 @@ let ``generateLink uses StartLine from range`` () =
 // --- US-007: Original and mutated code previews ---
 
 [<Fact>]
-let ``generatePreviewOriginal shows current line with > prefix`` () =
+let ``06. generatePreviewOriginal shows current line with > prefix`` () =
     let source = "let x = 1\nlet flag = true\nlet y = 2"
     let range = Range.mkRange "test.fs" (Position.mkPos 2 11) (Position.mkPos 2 15) // "true" on line 2
     let preview = generatePreviewOriginal source range
     Assert.Contains("> let flag = true", preview)
 
 [<Fact>]
-let ``generatePreviewOriginal includes previous line`` () =
+let ``07. generatePreviewOriginal includes previous line`` () =
     let source = "let x = 1\nlet flag = true\nlet y = 2"
     let range = Range.mkRange "test.fs" (Position.mkPos 2 11) (Position.mkPos 2 15)
     let preview = generatePreviewOriginal source range
     Assert.Contains("let x = 1", preview)
 
 [<Fact>]
-let ``generatePreviewOriginal includes next line`` () =
+let ``08. generatePreviewOriginal includes next line`` () =
     let source = "let x = 1\nlet flag = true\nlet y = 2"
     let range = Range.mkRange "test.fs" (Position.mkPos 2 11) (Position.mkPos 2 15)
     let preview = generatePreviewOriginal source range
     Assert.Contains("let y = 2", preview)
 
 [<Fact>]
-let ``generatePreviewOriginal omits previous line when on first line`` () =
+let ``09. generatePreviewOriginal omits previous line when on first line`` () =
     let source = "let flag = true\nlet y = 2"
     let range = Range.mkRange "test.fs" (Position.mkPos 1 11) (Position.mkPos 1 15)
     let preview = generatePreviewOriginal source range
@@ -92,7 +84,7 @@ let ``generatePreviewOriginal omits previous line when on first line`` () =
     Assert.Equal(2, lines.Length)
 
 [<Fact>]
-let ``generatePreviewOriginal omits next line when on last line`` () =
+let ``10. generatePreviewOriginal omits next line when on last line`` () =
     let source = "let x = 1\nlet flag = true"
     let range = Range.mkRange "test.fs" (Position.mkPos 2 11) (Position.mkPos 2 15)
     let preview = generatePreviewOriginal source range
@@ -100,7 +92,7 @@ let ``generatePreviewOriginal omits next line when on last line`` () =
     Assert.Contains("> let flag = true", preview)
 
 [<Fact>]
-let ``generatePreviewMutated highlights mutation in red bold`` () =
+let ``11. generatePreviewMutated highlights mutation in red bold`` () =
     let source = "let flag = true"
     let range = Range.mkRange "test.fs" (Position.mkPos 1 11) (Position.mkPos 1 15)
     let preview = generatePreviewMutated source range "true" "false"
@@ -109,7 +101,7 @@ let ``generatePreviewMutated highlights mutation in red bold`` () =
     Assert.Contains("false", preview)
 
 [<Fact>]
-let ``generatePreviewMutated replaces original with mutated token`` () =
+let ``12. generatePreviewMutated replaces original with mutated token`` () =
     let source = "let isEqual x y = x = y"
     let range = Range.mkRange "test.fs" (Position.mkPos 1 20) (Position.mkPos 1 21) // "=" operator
     let preview = generatePreviewMutated source range "=" "<>"
@@ -117,7 +109,7 @@ let ``generatePreviewMutated replaces original with mutated token`` () =
     Assert.Contains("</span>", preview)
 
 [<Fact>]
-let ``generatePreviewMutated includes surrounding lines`` () =
+let ``13. generatePreviewMutated includes surrounding lines`` () =
     let source = "let x = 1\nlet flag = true\nlet y = 2"
     let range = Range.mkRange "test.fs" (Position.mkPos 2 11) (Position.mkPos 2 15)
     let preview = generatePreviewMutated source range "true" "false"
@@ -127,7 +119,7 @@ let ``generatePreviewMutated includes surrounding lines`` () =
 // --- US-008: Summary of mutation results ---
 
 [<Fact>]
-let ``MutationResult contains all required fields`` () =
+let ``14. MutationResult contains all required fields`` () =
     let source = "let flag = true"
     let range = Range.mkRange "test.fs" (Position.mkPos 1 11) (Position.mkPos 1 15)
     let outcome = { Status = Killed; Interpretation = "Test detected change." }
@@ -155,13 +147,13 @@ let ``MutationResult contains all required fields`` () =
     Assert.NotEmpty(result.Link)
 
 [<Fact>]
-let ``full pipeline generates MutationResult with previews`` () =
+let ``15. full pipeline generates MutationResult with previews`` () =
     let source = """
-module TestModule
-let x = 1
-let flag = true
-let y = 2
-"""
+    module TestModule
+    let x = 1
+    let flag = true
+    let y = 2
+    """
     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
     Directory.CreateDirectory(tempDir) |> ignore
     let fileFs = Path.Combine(tempDir, "test.fs")
@@ -197,14 +189,14 @@ let y = 2
         Directory.Delete(tempDir, true)
 
 [<Fact>]
-let ``getLine returns empty string for out of bounds`` () =
+let ``16. getLine returns empty string for out of bounds`` () =
     let source = "line1\nline2"
     Assert.Equal("", getLine source 0)
     Assert.Equal("", getLine source 3)
     Assert.Equal("", getLine source -1)
 
 [<Fact>]
-let ``getLine returns correct line for valid index`` () =
+let ``17. getLine returns correct line for valid index`` () =
     let source = "line1\nline2\nline3"
     Assert.Equal("line1", getLine source 1)
     Assert.Equal("line2", getLine source 2)
@@ -213,7 +205,7 @@ let ``getLine returns correct line for valid index`` () =
 // --- ControlFlow preview tests ---
 
 [<Fact>]
-let ``generatePreviewMutated wraps ControlFlow condition with not`` () =
+let ``18. generatePreviewMutated wraps ControlFlow condition with not`` () =
     // The F# parser includes the leading space in the condition's range
     // "if x > 0 then"
     //    12345678901234567890
@@ -231,7 +223,7 @@ let ``generatePreviewMutated wraps ControlFlow condition with not`` () =
     Assert.DoesNotContain("if not condition then", preview)
 
 [<Fact>]
-let ``generatePreviewMutated removes not from negated ControlFlow condition`` () =
+let ``19. generatePreviewMutated removes not from negated ControlFlow condition`` () =
     // "if not (x > 0) then 1 else 0"
     //    1234567890123456789
     // The F# parser includes the leading space in the range
@@ -246,7 +238,7 @@ let ``generatePreviewMutated removes not from negated ControlFlow condition`` ()
     Assert.DoesNotContain("if condition then", preview)
 
 [<Fact>]
-let ``ControlFlow mutation range includes leading space`` () =
+let ``20. ControlFlow mutation range includes leading space`` () =
     // Test with actual parsed source to get the real range
     let source = """
 module TestModule

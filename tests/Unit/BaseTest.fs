@@ -250,6 +250,12 @@ type TestApp =
         Directory.CreateDirectory(baseDir) |> ignore
         baseDir
 
+    /// Returns the path to the sabota parent directory in the system temp folder.
+    /// Example:
+    ///   let sabotaDir = TestApp.GetSabotaDir()
+    static member GetSabotaDir() : string =
+        Path.Combine(Path.GetTempPath(), "sabota")
+
     /// Clean up a simulated project environment by deleting its base directory.
     /// Example:
     ///   let baseDir = TestApp.CreateSimulatedBaseDir()
@@ -342,17 +348,28 @@ type TestApp =
             Assert.False(List.contains excluded names, $"Did not expect '{excluded}' in file names")
             files
 
-    /// Returns all MutationCategory values as a list for test use.
-    static member allMutationCategories : MutationCategory list =
-        [ Equality
-          RelationalBoundary
-          RelationalReversal
-          Boolean
-          Arithmetic
-          Conditional
-          Option
-          ReturnListValue
-          ControlFlow ]
+    /// Assert that a MutationCategory is present in the given list of categories.
+    /// Returns a function MutationCategory -> MutationCategory for pipeline chaining.
+    static member Assert_Category_InList (categories : MutationCategory list) : MutationCategory -> MutationCategory =
+        fun category ->
+            Assert.True(List.contains category categories, $"Category {category} not in the list")
+            category
+
+    /// Assert that a MutationDefinition has non-empty Original and Replacement fields.
+    /// Returns a function MutationDefinition -> MutationDefinition for pipeline chaining.
+    static member Assert_Mutation_Definition_NonEmpty: Sabota.MuationDefinitions.MutationDefinition -> Sabota.MuationDefinitions.MutationDefinition =
+        fun def ->
+            Assert.False(String.IsNullOrEmpty def.Original, "Definition has empty Original")
+            Assert.False(String.IsNullOrEmpty def.Replacement, "Definition has empty Replacement")
+            def
+
+    /// Assert that a string label is non-empty.
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_Mutation_Label_NonEmpty: string -> string =
+        fun label ->
+            Assert.False(String.IsNullOrEmpty label, "Label is empty")
+            label
+
 
     /// Assert that the candidates list contains exactly one mutation of the given Kind.
     /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
@@ -412,4 +429,155 @@ type TestApp =
         finally
             if File.Exists tempFile then
                 File.Delete(tempFile)
+
+    /// Assert that a file's content contains the expected substring.
+    /// Returns a function string -> string for pipeline chaining (string is the file path).
+    static member Assert_FileContent_Contains (expected : string) : string -> string =
+        fun filePath ->
+            let content = File.ReadAllText(filePath)
+            Assert.Contains(expected, content)
+            filePath
+
+    /// Assert that a file's content does not contain the expected substring.
+    /// Returns a function string -> string for pipeline chaining (string is the file path).
+    static member Assert_FileContent_NotContains (excluded : string) : string -> string =
+        fun filePath ->
+            let content = File.ReadAllText(filePath)
+            Assert.DoesNotContain(excluded, content)
+            filePath
+
+    /// Assert that a file's content equals the expected string exactly.
+    /// Returns a function string -> string for pipeline chaining (string is the file path).
+    static member Assert_FileContent_Equal (expected : string) : string -> string =
+        fun filePath ->
+            let content = File.ReadAllText(filePath)
+            Assert.Equal(expected, content)
+            filePath
+
+    /// Assert that a directory exists.
+    /// Returns a function string -> string for pipeline chaining (string is the directory path).
+    static member Assert_Directory_Exists : string -> string =
+        fun dirPath ->
+            Assert.True(Directory.Exists(dirPath), $"Expected directory to exist: {dirPath}")
+            dirPath
+
+    /// Assert that a directory does not exist.
+    /// Returns a function string -> string for pipeline chaining (string is the directory path).
+    static member Assert_Directory_NotExists : string -> string =
+        fun dirPath ->
+            Assert.False(Directory.Exists(dirPath), $"Expected directory to not exist: {dirPath}")
+            dirPath
+
+    /// Assert that a string contains the expected substring (general purpose).
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_String_Contains (expected : string) : string -> string =
+        fun value ->
+            Assert.Contains(expected, value)
+            value
+
+    /// Assert that a file exists.
+    /// Returns a function string -> string for pipeline chaining (string is the file path).
+    static member Assert_File_Exists : string -> string =
+        fun filePath ->
+            Assert.True(File.Exists(filePath), $"Expected file to exist: {filePath}")
+            filePath
+
+    /// Assert that the enriched candidate's Original field matches the expected value.
+    /// Returns a function MutationCandidate -> MutationCandidate for pipeline chaining.
+    static member Assert_Enriched_Original (expected : string) : MutationCandidate -> MutationCandidate =
+        fun candidate ->
+            Assert.Equal(expected, candidate.Original)
+            candidate
+
+    /// Assert that the enriched candidate's Replacement field matches the expected value.
+    /// Returns a function MutationCandidate -> MutationCandidate for pipeline chaining.
+    static member Assert_Enriched_Replacement (expected : string) : MutationCandidate -> MutationCandidate =
+        fun candidate ->
+            Assert.Equal(expected, candidate.Replacement)
+            candidate
+
+    /// Assert that the enriched candidate's metadata fields are preserved.
+    /// Returns a function MutationCandidate -> MutationCandidate for pipeline chaining.
+    static member Assert_Enriched_Metadata_Preserved (originalCandidate : MutationCandidate) : MutationCandidate -> MutationCandidate =
+        fun enriched ->
+            Assert.Equal(originalCandidate.File, enriched.File)
+            Assert.Equal(originalCandidate.Kind, enriched.Kind)
+            Assert.Equal(originalCandidate.Id, enriched.Id)
+            Assert.Equal(originalCandidate.Range, enriched.Range)
+            enriched
+
+    /// Create a mutation test environment: a temp directory with a .fs file containing the given source,
+    /// parsed and enriched candidate for the specified MutationKind.
+    /// Returns a tuple of (baseDir, filePath, enrichedCandidate) for use in the test.
+    /// The caller is responsible for cleaning up baseDir.
+    /// Example:
+    ///   let baseDir, filePath, candidate = TestApp.CreateMutationTestEnv("let flag = true", MutationKind.TrueToFalse, categories)
+    ///   try
+    ///       applyMutation candidate
+    ///       filePath |> TestApp.Assert_FileContent_Contains "false"
+    ///   finally
+    ///       TestApp.CleanSimulatedEnvironment baseDir
+    static member CreateMutationTestEnv(source : string, kind : MutationKind, categories : MutationCategory list) : string * string * MutationCandidate =
+        let baseDir = TestApp.CreateSimulatedBaseDir()
+        let filePath = Path.Combine(baseDir, "test.fs")
+        File.WriteAllText(filePath, source)
+        let parsed = TestApp.parseSource source
+        let candidates = Sabota.Visitor.findMutationCandidates categories filePath parsed
+        let candidate = candidates |> List.find (fun c -> c.Kind = kind)
+        let enriched = Sabota.MuationDefinitions.enrich candidate
+        (baseDir, filePath, enriched)
+
+    /// Create a source directory structure for copy directory recursive tests.
+    /// Accepts a list of (relativeSubDir, fileName, content) tuples for files and a list of directory names to create.
+    /// Returns a tuple of (srcDir, tgtDir) where tgtDir is the sibling target path.
+    /// Example:
+    ///   let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(baseDir, "source", [(".git", "config", "git"); ("src", "Module.fs", "module")], [])
+    static member CreateCopyDirectoryStructure(baseDir : string, srcName : string, files : (string * string * string) list, directories : string list) : string * string =
+        let srcDir = Path.Combine(baseDir, srcName)
+        let tgtDir = Path.Combine(baseDir, "target")
+        // Create all directories first
+        directories
+        |> List.iter (fun dirName ->
+            let path = Path.Combine(srcDir, dirName)
+            Directory.CreateDirectory(path) |> ignore
+        )
+        // Create files with their subdirectories
+        files
+        |> List.iter (fun (subDir, fileName, content) ->
+            let path = Path.Combine(srcDir, subDir, fileName)
+            let parent = defaultArg (Option.ofObj (Path.GetDirectoryName(path))) srcDir
+            Directory.CreateDirectory(parent) |> ignore
+            File.WriteAllText(path, content)
+        )
+        (srcDir, tgtDir)
+
+    /// Check whether a file path passes through an excluded build directory.
+    /// Splits the path on '/' and '\' and checks if any component matches the excluded set (case-insensitive).
+    /// Returns true if the file is excluded, false otherwise.
+    static member isExcludedFile (file : string) : bool =
+        let parts = file.Split([|'\\'; '/'|], System.StringSplitOptions.RemoveEmptyEntries)
+        parts |> Array.exists (fun part -> Stub.ExcludedBuildDirs.Contains(part.ToLower()))
+
+    /// Assert that a file path is excluded (passes through an excluded build directory).
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_IsExcludedFile : string -> string =
+        fun file ->
+            Assert.True(TestApp.isExcludedFile(file), $"Expected '{file}' to be excluded")
+            file
+
+    /// Assert that a file path is included (does not pass through an excluded build directory).
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_IsIncluded : string -> string =
+        fun file ->
+            Assert.False(TestApp.isExcludedFile(file), $"Expected '{file}' to be included")
+            file
+
+    /// Assert that dot-prefixed directories were not copied to the target directory.
+    /// Returns a function string -> string for pipeline chaining (string is the target directory path).
+    static member Assert_Copy_SkipsDotPrefixed (dotDirs : string list) : string -> string =
+        fun tgtDir ->
+            for dir in dotDirs do
+                let path = Path.Combine(tgtDir, dir)
+                Assert.False(Directory.Exists(path), $"Expected '{dir}' to not be copied")
+            tgtDir
 

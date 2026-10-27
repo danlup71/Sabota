@@ -6,7 +6,7 @@ open Sabota.MutationCandidates
 open Sabota.Visitor
 open TestApp
 
-let mutationCategories = TestApp.allMutationCategories
+let mutationCategories = Stub.AllMutationCategories
 let testFile = "test.fs"
 
 

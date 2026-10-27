@@ -1,5 +1,44 @@
 module Stub
 
+open Sabota.MutationTypes
+
+/// All MutationCategory values for test consistency checks.
+let AllMutationCategories : MutationCategory list =
+    [ Equality
+      RelationalBoundary
+      RelationalReversal
+      Boolean
+      Arithmetic
+      Conditional
+      Option
+      ReturnListValue
+      ControlFlow ]
+
+/// All MutationKind values for test consistency checks.
+let AllMutationKinds : MutationKind list =
+    [ EqualityToInequality
+      InequalityToEquality
+      TrueToFalse
+      FalseToTrue
+      GreaterToGreaterOrEqual
+      GreaterOrEqualToGreater
+      LessToLessOrEqual
+      LessOrEqualToLess
+      GreaterToLess
+      GreaterToLessOrEqual
+      LessToGreater
+      LessToGreaterOrEqual
+      PlusToMinus
+      MinusToPlus
+      TimesToDivide
+      DivideToTimes
+      AndToOr
+      OrToAnd
+      SomeToNone
+      ReturnListValueToEmpty
+      ConditionToNotCondition
+      NotConditionToCondition ]
+
 /// Default test project file name used in validate tests.
 let TestProjectName = "test.fsproj"
 
@@ -32,4 +71,19 @@ let Dir2Name = "dir2"
 
 /// Non-existent directory name used in validate tests.
 let NonExistentDirName = "no_dir"
+
+/// Test file name used in independent mutation tests.
+let TestFsName = "test.fs"
+
+/// First source file name used in multi-file mutation tests.
+let SourceFile1Name = "file1.fs"
+
+/// Second source file name used in multi-file mutation tests.
+let SourceFile2Name = "file2.fs"
+
+/// Custom file name used in enrich metadata tests.
+let CustomFsName = "custom.fs"
+
+/// Set of excluded build directory names used in excluded directory tests.
+let ExcludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
 
