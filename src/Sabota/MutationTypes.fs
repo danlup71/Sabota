@@ -97,4 +97,27 @@ let getCategory = function
         ControlFlow
 
     
+type MutationStatus =
+| Killed
+| Survived
+| BuildFailed
     
+type MutationOutcome =
+    {
+        Status: MutationStatus
+        Interpretation: string
+    }
+
+type MutationResult =
+    {
+        MutationId: int
+        MutationType: MutationKind
+        File: string
+        Range: FSharp.Compiler.Text.Range
+        Original: string
+        Mutated: string
+        Outcome: MutationOutcome
+        PreviewOriginal: string
+        PreviewMutated: string
+        Link: string
+    }

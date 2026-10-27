@@ -7,22 +7,11 @@ open Sabota.Files
 open Sabota.MultiError
 open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
+open Sabota.MutationTypes
 open Sabota.Visitor
+open Sabota.Mutator
 open Sabota.Report
 
-let createMutationResult (candidate: MutationCandidate) (source: string) (outcome: MutationOutcome) =
-    {
-        MutationId = candidate.Id
-        MutationType = candidate.Kind
-        File = candidate.File
-        Range = candidate.Range
-        Original = candidate.Original
-        Mutated = candidate.Replacement
-        Outcome = outcome
-        PreviewOriginal = generatePreviewOriginal source candidate.Range
-        PreviewMutated = generatePreviewMutated source candidate.Range candidate.Original candidate.Replacement
-        Link = generateLink candidate.File candidate.Range
-    }
 
 // src/Sabota/bin/Debug/net10.0/Sabota.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
