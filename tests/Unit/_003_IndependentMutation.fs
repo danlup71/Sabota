@@ -9,9 +9,6 @@ open Sabota.Visitor
 open Sabota.Files
 open TestApp
 
-let mutationCategories = Stub.AllMutationCategories
-
-
 // --- createWorkFolder tests ---
 
 [<Fact>]
@@ -126,7 +123,7 @@ let ``07. when non-existent path is deleted, no error occurs`` () =
 [<Fact>]
 let ``08. when true to false mutation is applied, file contains false`` () =
     // Arrange
-    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let flag = true", MutationKind.TrueToFalse, mutationCategories)
+    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let flag = true", MutationKind.TrueToFalse, Stub.AllMutationCategories)
 
     try
         // Act
@@ -142,7 +139,7 @@ let ``08. when true to false mutation is applied, file contains false`` () =
 [<Fact>]
 let ``09. when false to true mutation is applied, file contains true`` () =
     // Arrange
-    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let flag = false", MutationKind.FalseToTrue, mutationCategories)
+    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let flag = false", MutationKind.FalseToTrue, Stub.AllMutationCategories)
 
     try
         // Act
@@ -158,7 +155,7 @@ let ``09. when false to true mutation is applied, file contains true`` () =
 [<Fact>]
 let ``10. when equality to inequality mutation is applied, operator changes`` () =
     // Arrange
-    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let isEqual x y = x = y", MutationKind.EqualityToInequality, mutationCategories)
+    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv("let isEqual x y = x = y", MutationKind.EqualityToInequality, Stub.AllMutationCategories)
 
     try
         // Act
@@ -178,7 +175,7 @@ let ``11. when mutation is applied, surrounding code is preserved`` () =
     let flag = true
     let b = 2
     """
-    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv(source, MutationKind.TrueToFalse, mutationCategories)
+    let baseDir, filePath, enriched = TestApp.CreateMutationTestEnv(source, MutationKind.TrueToFalse, Stub.AllMutationCategories)
 
     try
         // Act
@@ -203,7 +200,7 @@ let ``12. when multiple mutations are applied with restore, each changes the fil
     File.WriteAllText(env.FileFs, originalContent)
 
     let parsed = TestApp.parseSource originalContent
-    let candidates = findMutationCandidates mutationCategories env.FileFs parsed |> List.map enrich
+    let candidates = findMutationCandidates Stub.AllMutationCategories env.FileFs parsed |> List.map enrich
 
     // Act
     let workFolder = createWorkFolder ()
@@ -239,7 +236,7 @@ let ``13. when two mutations run sequentially with restore, they do not interfer
     File.WriteAllText(env.FileFs, originalContent)
 
     let parsed = TestApp.parseSource originalContent
-    let candidates = findMutationCandidates mutationCategories env.FileFs parsed |> List.map enrich
+    let candidates = findMutationCandidates Stub.AllMutationCategories env.FileFs parsed |> List.map enrich
 
     let trueToFalse = candidates |> List.find (fun c -> c.Kind = MutationKind.TrueToFalse)
     let falseToTrue = candidates |> List.find (fun c -> c.Kind = MutationKind.FalseToTrue)
@@ -285,7 +282,7 @@ let ``14. when full mutation cycle completes, original file is preserved`` () =
     File.WriteAllText(env.FileFs, originalContent)
 
     let parsed = TestApp.parseSource originalContent
-    let candidates = findMutationCandidates mutationCategories env.FileFs parsed |> List.map enrich
+    let candidates = findMutationCandidates Stub.AllMutationCategories env.FileFs parsed |> List.map enrich
 
     // Act
     let workFolder = createWorkFolder ()
@@ -325,7 +322,7 @@ let ``15. when each mutation is applied, only the target line changes`` () =
     File.WriteAllText(env.FileFs, originalContent)
 
     let parsed = TestApp.parseSource originalContent
-    let candidates = findMutationCandidates mutationCategories env.FileFs parsed |> List.map enrich
+    let candidates = findMutationCandidates Stub.AllMutationCategories env.FileFs parsed |> List.map enrich
 
     // Act
     let workFolder = createWorkFolder ()
@@ -397,7 +394,7 @@ let ``16. when multiple files are copied to work folder, each maintains distinct
 [<Fact>]
 let ``17. when candidate is enriched, original and replacement are set from mutation kind`` () =
     // Arrange
-    let baseDir, _filePath, enriched = TestApp.CreateMutationTestEnv("let flag = true", MutationKind.TrueToFalse, mutationCategories)
+    let baseDir, _filePath, enriched = TestApp.CreateMutationTestEnv("let flag = true", MutationKind.TrueToFalse, Stub.AllMutationCategories)
 
     try
         // Assert
@@ -417,7 +414,7 @@ let ``18. when candidate is enriched, metadata fields are preserved`` () =
 
     try
         let parsed = TestApp.parseSource source
-        let candidates = findMutationCandidates mutationCategories filePath parsed
+        let candidates = findMutationCandidates Stub.AllMutationCategories filePath parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = MutationKind.EqualityToInequality)
 
         // Act
