@@ -265,7 +265,8 @@ type TestApp =
     ///   finally
     ///       TestApp.CleanSimulatedEnvironment baseDir
     static member CleanSimulatedEnvironment(baseDir : string) : unit =
-        Directory.Delete(baseDir, true)
+        if Directory.Exists baseDir then
+            Directory.Delete(baseDir, true)
 
     /// Temporarily change the current working directory and return a function to restore it.
     /// Returns a unit -> unit function that restores the original directory.
@@ -580,4 +581,5 @@ type TestApp =
                 let path = Path.Combine(tgtDir, dir)
                 Assert.False(Directory.Exists(path), $"Expected '{dir}' to not be copied")
             tgtDir
+
 

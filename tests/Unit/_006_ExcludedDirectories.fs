@@ -8,211 +8,207 @@ open TestApp
 
 // --- Tests for isExcludedFile logic (mirrors Program.fs behavior) ---
 
-[<Fact>]
-let ``01. when file is in debug directory, it is excluded`` () =
-    // Arrange
-    ["src/debug/Module.fs"; "src\\debug\\Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/debug/Module.fs")>]
+[<InlineData("src\\debug\\Module.fs")>]
+let ``01. when file is in debug directory, it is excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``02. when file is in release directory, it is excluded`` () =
-    // Arrange
-    ["src/release/Module.fs"; "src\\release\\Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/release/Module.fs")>]
+[<InlineData("src\\release\\Module.fs")>]
+let ``02. when file is in release directory, it is excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``03. when file is in bin directory, it is excluded`` () =
-    // Arrange
-    ["src/bin/Module.fs"; "src\\bin\\Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/bin/Module.fs")>]
+[<InlineData("src\\bin\\Module.fs")>]
+let ``03. when file is in bin directory, it is excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``04. when file is in obj directory, it is excluded`` () =
-    // Arrange
-    ["src/obj/Module.fs"; "src\\obj\\Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/obj/Module.fs")>]
+[<InlineData("src\\obj\\Module.fs")>]
+let ``04. when file is in obj directory, it is excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``05. when directory name has mixed case, it is still excluded`` () =
-    // Arrange
-    ["src/Debug/Module.fs"; "src/DEBUG/Module.fs"; "src/Release/Module.fs"; "src/RELEASE/Module.fs"; "src/Bin/Module.fs"; "src/Obj/Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/Debug/Module.fs")>]
+[<InlineData("src/DEBUG/Module.fs")>]
+[<InlineData("src/Release/Module.fs")>]
+[<InlineData("src/RELEASE/Module.fs")>]
+[<InlineData("src/Bin/Module.fs")>]
+[<InlineData("src/Obj/Module.fs")>]
+let ``05. when directory name has mixed case, it is still excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``06. when excluded directory is deeply nested, it is excluded`` () =
-    // Arrange
-    ["src/project/debug/Module.fs"; "src/project/release/sub/Module.fs"; "a/b/c/d/bin/Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsExcludedFile |> ignore)
+[<Theory>]
+[<InlineData("src/project/debug/Module.fs")>]
+[<InlineData("src/project/release/sub/Module.fs")>]
+[<InlineData("a/b/c/d/bin/Module.fs")>]
+let ``06. when excluded directory is deeply nested, it is excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsExcludedFile
+    |> ignore
 
-[<Fact>]
-let ``07. when file is in a normal directory, it is not excluded`` () =
-    // Arrange
-    ["src/Module.fs"; "src/project/Module.fs"; "src/project/sub/Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsIncluded |> ignore)
+[<Theory>]
+[<InlineData("src/Module.fs")>]
+[<InlineData("src/project/Module.fs")>]
+[<InlineData("src/project/sub/Module.fs")>]
+let ``07. when file is in a normal directory, it is not excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsIncluded
+    |> ignore
 
-[<Fact>]
-let ``08. when directory name is similar to excluded, it is not excluded`` () =
-    // Arrange
-    ["src/debugger/Module.fs"; "src/releases/Module.fs"; "src/binary/Module.fs"; "src/object/Module.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsIncluded |> ignore)
+[<Theory>]
+[<InlineData("src/debugger/Module.fs")>]
+[<InlineData("src/releases/Module.fs")>]
+[<InlineData("src/binary/Module.fs")>]
+[<InlineData("src/object/Module.fs")>]
+let ``08. when directory name is similar to excluded, it is not excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsIncluded
+    |> ignore
 
-[<Fact>]
-let ``09. when file name matches excluded directory name, it is not excluded`` () =
-    // Arrange
-    ["src/debug.fs"; "src/module/debug.fs"]
-    // Act & Assert
-    |> List.iter (fun f -> f |> TestApp.Assert_IsIncluded |> ignore)
+[<Theory>]
+[<InlineData("src/debug.fs")>]
+[<InlineData("src/module/debug.fs")>]
+let ``09. when file name matches excluded directory name, it is not excluded`` (file : string) =
+    file
+    |> TestApp.Assert_IsIncluded
+    |> ignore
 
 // --- Tests for copyDirectoryRecursive excluded directories ---
 
 [<Fact>]
 let ``10. when copying directory tree, bin and obj are skipped`` () =
-    let tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
-        // Create source structure
-        let srcDir = Path.Combine(tempRoot, "source")
-        let srcBin = Path.Combine(srcDir, "bin")
-        let srcObj = Path.Combine(srcDir, "obj")
-        let srcSrc = Path.Combine(srcDir, "src")
-        Directory.CreateDirectory(srcBin) |> ignore
-        Directory.CreateDirectory(srcObj) |> ignore
-        Directory.CreateDirectory(srcSrc) |> ignore
+        // Arrange
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [("bin", "file.dll", "dll"); ("obj", "file.o", "o"); ("src", "Module.fs", "module")],
+            []
+        )
 
-        File.WriteAllText(Path.Combine(srcBin, "file.dll"), "dll")
-        File.WriteAllText(Path.Combine(srcObj, "file.o"), "o")
-        File.WriteAllText(Path.Combine(srcSrc, "Module.fs"), "module")
-
-        // Copy to target
-        let tgtDir = Path.Combine(tempRoot, "target")
+        // Act
         copyDirectoryRecursive srcDir tgtDir
 
-        // Verify bin and obj are not copied
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "bin")))
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "obj")))
-
-        // Verify src is copied
-        Assert.True(Directory.Exists(Path.Combine(tgtDir, "src")))
-        Assert.True(File.Exists(Path.Combine(tgtDir, "src", "Module.fs")))
+        // Assert
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "bin")) |> ignore
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "obj"))  |> ignore
+        TestApp.Assert_Directory_Exists(Path.Combine(tgtDir, "src")) |> ignore
+        TestApp.Assert_File_Exists(Path.Combine(tgtDir, "src", "Module.fs")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
 
 [<Fact>]
 let ``11. when copying directory tree, debug and release are skipped`` () =
-    let tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
-        let srcDir = Path.Combine(tempRoot, "source")
-        let srcDebug = Path.Combine(srcDir, "debug")
-        let srcRelease = Path.Combine(srcDir, "release")
-        let srcSrc = Path.Combine(srcDir, "src")
-        Directory.CreateDirectory(srcDebug) |> ignore
-        Directory.CreateDirectory(srcRelease) |> ignore
-        Directory.CreateDirectory(srcSrc) |> ignore
+        // Arrange
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [("debug", "Module.fs", "debug"); ("release", "Module.fs", "release"); ("src", "Module.fs", "module")],
+            []
+        )
 
-        File.WriteAllText(Path.Combine(srcDebug, "Module.fs"), "debug")
-        File.WriteAllText(Path.Combine(srcRelease, "Module.fs"), "release")
-        File.WriteAllText(Path.Combine(srcSrc, "Module.fs"), "module")
-
-        let tgtDir = Path.Combine(tempRoot, "target")
+        // Act
         copyDirectoryRecursive srcDir tgtDir
 
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "debug")))
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "release")))
-        Assert.True(Directory.Exists(Path.Combine(tgtDir, "src")))
+        // Assert
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "debug")) |> ignore
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "release")) |> ignore
+        TestApp.Assert_Directory_Exists(Path.Combine(tgtDir, "src")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
 
 [<Fact>]
 let ``12. when copying directory tree, dot-prefixed directories are skipped`` () =
     let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
         // Arrange
-        let srcDir = Path.Combine(tempRoot, "source")
-        let srcGit = Path.Combine(srcDir, ".git")
-        let srcVs = Path.Combine(srcDir, ".vs")
-        let srcSrc = Path.Combine(srcDir, "src")
-        Directory.CreateDirectory(srcGit) |> ignore
-        Directory.CreateDirectory(srcVs) |> ignore
-        Directory.CreateDirectory(srcSrc) |> ignore
-
-        File.WriteAllText(Path.Combine(srcGit, "config"), "git")
-        File.WriteAllText(Path.Combine(srcVs, "config"), "vs")
-        File.WriteAllText(Path.Combine(srcSrc, "Module.fs"), "module")
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [(".git", "config", "git"); (".vs", "config", "vs"); ("src", "Module.fs", "module")],
+            []
+        )
 
         // Act
-        let tgtDir = Path.Combine(tempRoot, "target")
         copyDirectoryRecursive srcDir tgtDir
 
         // Assert
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, ".git")))
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, ".vs")))
-        Assert.True(Directory.Exists(Path.Combine(tgtDir, "src")))
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, ".git")) |> ignore
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, ".vs")) |> ignore
+        TestApp.Assert_Directory_Exists(Path.Combine(tgtDir, "src")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
 
 [<Fact>]
 let ``13. when copying directory tree, root files are included`` () =
-    let tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
-        let srcDir = Path.Combine(tempRoot, "source")
-        Directory.CreateDirectory(srcDir) |> ignore
-        File.WriteAllText(Path.Combine(srcDir, "Module.fs"), "module")
-        File.WriteAllText(Path.Combine(srcDir, "Module2.fs"), "module2")
+        // Arrange
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [("", "Module.fs", "module"); ("", "Module2.fs", "module2")],
+            []
+        )
 
-        let tgtDir = Path.Combine(tempRoot, "target")
+        // Act
         copyDirectoryRecursive srcDir tgtDir
 
-        Assert.True(File.Exists(Path.Combine(tgtDir, "Module.fs")))
-        Assert.True(File.Exists(Path.Combine(tgtDir, "Module2.fs")))
+        // Assert
+        TestApp.Assert_File_Exists(Path.Combine(tgtDir, "Module.fs")) |> ignore
+        TestApp.Assert_File_Exists(Path.Combine(tgtDir, "Module2.fs")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
 
 [<Fact>]
 let ``14. when copying directory tree, nested non-excluded directories are included`` () =
-    let tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
-        let srcDir = Path.Combine(tempRoot, "source")
-        let nested = Path.Combine(srcDir, "src", "sub", "deep")
-        Directory.CreateDirectory(nested) |> ignore
-        File.WriteAllText(Path.Combine(nested, "Module.fs"), "deep")
+        // Arrange
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [("src/sub/deep", "Module.fs", "deep")],
+            []
+        )
 
-        let tgtDir = Path.Combine(tempRoot, "target")
+        // Act
         copyDirectoryRecursive srcDir tgtDir
 
-        Assert.True(File.Exists(Path.Combine(tgtDir, "src", "sub", "deep", "Module.fs")))
+        // Assert
+        TestApp.Assert_File_Exists(Path.Combine(tgtDir, "src", "sub", "deep", "Module.fs")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
 
 [<Fact>]
 let ``15. when copying directory tree, sabota and CoverageResults are skipped`` () =
-    let tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+    let tempRoot = TestApp.CreateSimulatedBaseDir()
     try
-        let srcDir = Path.Combine(tempRoot, "source")
-        let srcSabota = Path.Combine(srcDir, "sabota")
-        let srcCoverage = Path.Combine(srcDir, "CoverageResults")
-        Directory.CreateDirectory(srcSabota) |> ignore
-        Directory.CreateDirectory(srcCoverage) |> ignore
+        // Arrange
+        let srcDir, tgtDir = TestApp.CreateCopyDirectoryStructure(
+            tempRoot, "source",
+            [("sabota", "result.json", "result"); ("CoverageResults", "coverage.xml", "coverage")],
+            []
+        )
 
-        File.WriteAllText(Path.Combine(srcSabota, "result.json"), "result")
-        File.WriteAllText(Path.Combine(srcCoverage, "coverage.xml"), "coverage")
-
-        let tgtDir = Path.Combine(tempRoot, "target")
+        // Act
         copyDirectoryRecursive srcDir tgtDir
 
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "sabota")))
-        Assert.False(Directory.Exists(Path.Combine(tgtDir, "CoverageResults")))
+        // Assert
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "sabota")) |> ignore
+        TestApp.Assert_Directory_NotExists(Path.Combine(tgtDir, "CoverageResults")) |> ignore
     finally
-        if Directory.Exists tempRoot then
-            Directory.Delete(tempRoot, recursive = true)
+        TestApp.CleanSimulatedEnvironment tempRoot
