@@ -70,7 +70,8 @@ let parseArgs (args : string[]) : ParseResult =
             Categories = categories
         }
 
-let validate (testProject : string) (solutionRoot : string) (target : FileTarget) : Result<ParsedArgs, MultiError> =
+/// Check that all resolved paths exist on disk and have the correct extensions.
+let validatePaths (testProject : string) (solutionRoot : string) (target : FileTarget) : Result<ParsedArgs, MultiError> =
     let errors =
         [
             if not (testProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then

@@ -3,6 +3,7 @@ module Sabota.Files
 open System
 open System.IO
 open System.Xml.Linq
+open Sabota.Args
 open Sabota.MutationCandidates
 
 let printfnColor (color: ConsoleColor) text : 'a =
@@ -201,6 +202,27 @@ let mapFileToWorkFolder (originalFile: string) (sourceDir: string) (workDir: str
     let relativePath = Path.GetRelativePath(sourceDir, originalFile)
     Path.Combine(workDir, relativePath)
 
+/// Check if a file path contains an excluded build directory name (debug, release, bin, obj).
+let isExcludedFile (file: string) : bool =
+    let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
+    let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
+    parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
+
+/// Discover all .fs files from a FileTarget, excluding build artifact directories.
+/// For File targets, returns the files as-is.
+/// For Directory targets, recursively scans for *.fs files, filtering out excluded directories.
+let discoverFiles (target: FileTarget) : string list =
+    match target with
+    | File fs -> fs
+    | Directory dirs ->
+        dirs
+        |> List.collect (fun d ->
+            Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
+            |> Array.filter (fun f -> not (isExcludedFile f))
+            |> Array.toList
+        )
+
+/// Clean up the work folder after all files are processed
 let deleteWorkFolder (workFolder: string) : unit =
     if Directory.Exists workFolder then
         Directory.Delete(workFolder, recursive = true)

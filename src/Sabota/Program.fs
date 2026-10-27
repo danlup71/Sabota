@@ -166,26 +166,10 @@ loadSettings ()
         | _, _ ->
             Directory [Path.GetFullPath solutionRoot]
 
-    // Validate
-    validate testProject solutionRoot target
+    validatePaths testProject solutionRoot target
     |> Result.bind (fun _ ->
 
-        let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
-
-        let isExcludedFile (file: string) : bool =
-            let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
-            parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
-
-        let files =
-            match target with
-            | File fs -> fs
-            | Directory dirs ->
-                dirs
-                |> List.collect (fun d ->
-                    Directory.GetFiles(d, "*.fs", SearchOption.AllDirectories)
-                    |> Array.filter (fun f -> not (isExcludedFile f))
-                    |> Array.toList
-                )
+        let files = discoverFiles target
 
         // Create a single work folder and copy the solution once for all files
         let workFolder = createWorkFolder ()
@@ -214,7 +198,6 @@ loadSettings ()
 
         let executionTime = DateTime.Now - startTime
 
-        // Clean up the work folder after all files are processed
         deleteWorkFolder workFolder
 
         reportResults result executionTime

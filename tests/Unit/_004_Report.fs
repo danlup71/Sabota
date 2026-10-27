@@ -1,5 +1,6 @@
 module Tests._004_Report
 
+open Sabota.Mutator
 open Xunit
 open FSharp.Compiler.Text
 open Sabota.MutationTypes
