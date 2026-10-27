@@ -2,6 +2,7 @@ module Tests._003_IndependentMutation
 
 open System.IO
 open Sabota.MutationTypes
+open Sabota.Workspace
 open Xunit
 open Sabota.MutationCandidates
 open Sabota.MuationDefinitions

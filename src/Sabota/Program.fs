@@ -4,11 +4,14 @@ open Sabota.Args
 open Sabota.Config
 open Sabota.Files
 open Sabota.MultiError
+open Sabota.MutationTypes
 open Sabota.Mutator
 open Sabota.Report
+open Sabota.Workspace
 
 // src/Sabota/bin/Debug/net10.0/Sabota.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
+    
 loadSettings ()
 |> Result.bind (fun config ->
 
@@ -17,34 +20,25 @@ loadSettings ()
     validatePaths config.TestProject config.SolutionRoot target
     |> Result.bind (fun _ ->
 
-        // Create a single work folder and copy the solution once for all files
-        let workFolder = createWorkFolder ()
-        let workSolutionDir = copySolutionToWorkFolder config.SolutionRoot workFolder
+        prepareWorkspace config
+        
+        |> Result.bind (fun Workspace ->
+        
+            let startTime = DateTime.Now
 
-        // Copy the test project to the work folder (it may be outside the solution root)
-        let workTestPrj = copyProjectToWorkFolder config.TestProject workFolder
+            let result =
+                discoverFiles target
+                |> List.collect (fun file -> processFile file Workspace.Folder Workspace.TestProject config.Categories Workspace.SolutionDir)
 
-        fixProjectReferences config.TestProject workTestPrj config.SolutionRoot workFolder
+            let executionTime = DateTime.Now - startTime
 
-        copyGlobalJson config.SolutionRoot workFolder
+            deleteWorkFolder Workspace.Folder
 
-        build workTestPrj
+            reportResults result executionTime
 
-        let startTime = DateTime.Now
-
-        let result =
-            discoverFiles target
-            |> List.collect (fun file -> processFile file workFolder workTestPrj config.Categories config.SolutionRoot)
-
-        let executionTime = DateTime.Now - startTime
-
-        deleteWorkFolder workFolder
-
-        reportResults result executionTime
-
-        exit 0
+            exit 0
     )
-)
+))
 |> Result.mapError (fun err ->
     match err with
     | ParseError msg 

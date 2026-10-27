@@ -121,3 +121,8 @@ type MutationResult =
         PreviewMutated: string
         Link: string
     }
+    
+type Workspace =
+    { Folder : string
+      SolutionDir : string
+      TestProject : string }    
