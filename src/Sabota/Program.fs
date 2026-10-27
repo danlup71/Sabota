@@ -40,15 +40,7 @@ loadSettings ()
     )
 ))
 |> Result.mapError (fun err ->
-    match err with
-    | ParseError msg 
-    | ValidationError msg 
-    | GenericError msg ->
-        printError msg
-    | MissingTestProject msg 
-    | MissingSolutionRoot msg ->
-        printError msg
-        printUsage()
-    exit 1
+                printError err
+                exit 1
 )
 |> ignore
