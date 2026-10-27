@@ -2,6 +2,7 @@ module Sabota.Args
 
 open System
 open System.IO
+open Sabota.MultiError
 
 type FileTarget =
     | File of string list
@@ -69,7 +70,7 @@ let parseArgs (args : string[]) : ParseResult =
             Categories = categories
         }
 
-let validate (testProject : string) (solutionRoot : string) (target : FileTarget) : ParseResult =
+let validate (testProject : string) (solutionRoot : string) (target : FileTarget) : Result<ParsedArgs, MultiError> =
     let errors =
         [
             if not (testProject.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)) then
@@ -92,11 +93,11 @@ let validate (testProject : string) (solutionRoot : string) (target : FileTarget
         ]
 
     if List.isEmpty errors then
-        Ok {
+        Result.Ok {
             TestProject = Some testProject
             SolutionRoot = Some solutionRoot
             Target = Some target
             Categories = None
         }
     else
-        Error (String.Join("\n", errors))
+        Result.Error (ValidationError (String.Join("\n", errors)))

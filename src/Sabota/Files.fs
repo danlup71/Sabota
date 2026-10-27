@@ -206,6 +206,7 @@ let deleteWorkFolder (workFolder: string) : unit =
         Directory.Delete(workFolder, recursive = true)
         printfnColor ConsoleColor.Cyan $"Work folder deleted: {workFolder}"
 
+/// Restore the original file in the work folder for the next mutation
 let restoreFile (originalFile: string) (workFile: string) : unit =
     if File.Exists originalFile && File.Exists workFile then
         File.Copy(originalFile, workFile, overwrite = true)

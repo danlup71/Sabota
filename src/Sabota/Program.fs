@@ -92,6 +92,66 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
         Result.Ok mergedConfig
     )
 
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot  : list<MutationResult> =
+    let source = File.ReadAllText(file)
+
+    printfn $"parse file: {file} {timestamp ()}"
+
+    let parsingOptions =
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| file |] }
+
+    let checker = FSharpChecker.Create()
+    
+    let parseResult =
+        checker.ParseFile(
+            file,
+            FSharp.Compiler.Text.SourceText.ofString source,
+            parsingOptions)
+        |> Async.RunSynchronously
+
+    printfn "detect mutation candidates"
+
+    let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
+
+    // Copy the source file to the work folder (it may be outside the solution root)
+    let workFile = copyFileToWorkFolder file solutionRoot workFolder
+
+    let results =
+        candidates
+        |> List.map (fun candidate ->
+            // Apply mutation to the COPY in the work folder
+            let workCandidate = { candidate with File = workFile }
+            applyMutation workCandidate
+
+            let testOutcome = test workTestPrj solutionRoot
+            let outcome =
+                match testOutcome with
+                | TestRunnerOutcome.BuildFailed ->
+                    {
+                        Status = MutationStatus.BuildFailed
+                        Interpretation = "Build failed."
+                    }
+                | TestRunnerOutcome.TestsFailed ->
+                    {
+                        Status = MutationStatus.Killed
+                        Interpretation = "Tests detected the behavioural change."
+                    }
+                | TestRunnerOutcome.TestsPassed ->
+                    {
+                        Status = MutationStatus.Survived
+                        Interpretation = candidate.SurvivorInterpretation
+                    }
+
+            restoreFile file workFile
+
+            createMutationResult candidate source outcome
+        )
+
+    results
+
+
+
 loadSettings ()
 |> Result.bind (fun defaults ->
 
@@ -118,13 +178,7 @@ loadSettings ()
             Directory [Path.GetFullPath solutionRoot]
 
     // Validate
-    let validationResult = validate testProject solutionRoot target
-    let validationResult' : Result<_, MultiError> =
-        match validationResult with
-        | Ok v -> Result.Ok v
-        | Error msg -> Result.Error (ValidationError msg)
-
-    validationResult'
+    validate testProject solutionRoot target
     |> Result.bind (fun _ ->
 
         let excludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
@@ -143,65 +197,6 @@ loadSettings ()
                     |> Array.filter (fun f -> not (isExcludedFile f))
                     |> Array.toList
                 )
-
-        let processFile (file : string) (workFolder : string) (workTestPrj : string) : list<MutationResult> =
-            let source = File.ReadAllText(file)
-
-            printfn $"parse file: {file} {timestamp ()}"
-
-            let parsingOptions =
-                { FSharpParsingOptions.Default with
-                    SourceFiles = [| file |] }
-
-            let checker = FSharpChecker.Create()
-            
-            let parseResult =
-                checker.ParseFile(
-                    file,
-                    FSharp.Compiler.Text.SourceText.ofString source,
-                    parsingOptions)
-                |> Async.RunSynchronously
-
-            printfn "detect mutation candidates"
-
-            let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
-
-            // Copy the source file to the work folder (it may be outside the solution root)
-            let workFile = copyFileToWorkFolder file solutionRoot workFolder
-
-            let results =
-                candidates
-                |> List.map (fun candidate ->
-                    // Apply mutation to the COPY in the work folder
-                    let workCandidate = { candidate with File = workFile }
-                    applyMutation workCandidate
-
-                    let testOutcome = test workTestPrj solutionRoot
-                    let outcome =
-                        match testOutcome with
-                        | TestRunnerOutcome.BuildFailed ->
-                            {
-                                Status = MutationStatus.BuildFailed
-                                Interpretation = "Build failed."
-                            }
-                        | TestRunnerOutcome.TestsFailed ->
-                            {
-                                Status = MutationStatus.Killed
-                                Interpretation = "Tests detected the behavioural change."
-                            }
-                        | TestRunnerOutcome.TestsPassed ->
-                            {
-                                Status = MutationStatus.Survived
-                                Interpretation = candidate.SurvivorInterpretation
-                            }
-
-                    // Restore the original file in the work folder for the next mutation
-                    restoreFile file workFile
-
-                    createMutationResult candidate source outcome
-                )
-
-            results
 
         // Create a single work folder and copy the solution once for all files
         let workFolder = createWorkFolder ()
@@ -226,25 +221,14 @@ loadSettings ()
 
         let result =
             files
-            |> List.collect (fun file -> processFile file workFolder workTestPrj)
+            |> List.collect (fun file -> processFile file workFolder workTestPrj mutationCategories solutionRoot)
 
         let executionTime = DateTime.Now - startTime
 
         // Clean up the work folder after all files are processed
         deleteWorkFolder workFolder
 
-        let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
-        let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
-        let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length
-        printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
-        printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
-        printfnColor ConsoleColor.Black $"BUILD FAILED {buildFailed} !"
-
-        let reportPath = generateHtmlReport result executionTime
-        let forwardPath = reportPath.Replace("\\", "/")
-        let linkTarget = $"file:///%s{forwardPath}"
-        let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
-        printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
+        reportResults result executionTime
 
         exit 0
     )

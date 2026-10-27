@@ -184,6 +184,15 @@ type TestApp =
             | Error msg ->
                 Assert.Fail($"Expected Ok, got Error: {msg}")
 
+    /// Wrapper that calls validate and converts the Result back to ParseResult for test compatibility.
+    /// Returns a function that takes no additional arguments (curried from validate's parameters).
+    static member Validate(testProject : string) (solutionRoot : string) (target : FileTarget) : ParseResult =
+        let result = validate testProject solutionRoot target
+        match result with
+        | Result.Ok v -> Ok v
+        | Result.Error (Sabota.MultiError.ValidationError msg) -> Error msg
+        | Result.Error _ -> Error "Unexpected error"
+
     /// Assert that a validate result is an Error containing the expected message substring.
     /// Returns a function ParseResult -> unit for pipeline chaining.
     static member Assert_ValidateError_Contains(expected : string) : ParseResult -> unit =

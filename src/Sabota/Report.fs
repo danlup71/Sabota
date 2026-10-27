@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open Sabota.Files
 open Sabota.MutationTypes
 
 type MutationStatus =
@@ -74,7 +75,6 @@ let htmlEscape (s: string) : string =
 let stripAnsi (s: string) =
     System.Text.RegularExpressions.Regex.Replace(s, @"\x1b\[[0-9;]*m", "")
 
-/// Generate the full HTML report and write it to a file in the sabota_result folder
 let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) : string =
     let resultDir = "sabota_result"
     Directory.CreateDirectory(resultDir) |> ignore
@@ -437,6 +437,22 @@ let generateHtmlReport (results: MutationResult list) (executionTime: TimeSpan) 
 
     File.WriteAllText(filePath, html)
     Path.GetFullPath(filePath)
+
+/// Print a colored summary of mutation results and generate the HTML report
+let reportResults (result : MutationResult list) (executionTime : TimeSpan) : unit =
+    let killed = result |> List.filter _.Outcome.Status.IsKilled |> List.length
+    let survived = result |> List.filter _.Outcome.Status.IsSurvived |> List.length
+    let buildFailed = result |> List.filter _.Outcome.Status.IsBuildFailed |> List.length
+    
+    printfnColor ConsoleColor.DarkGreen $"\nKILLED {killed} !"
+    printfnColor ConsoleColor.Red $"SURVIVED {survived} !"
+    printfnColor ConsoleColor.Black $"BUILD FAILED {buildFailed} !"
+
+    let reportPath = generateHtmlReport result executionTime
+    let forwardPath = reportPath.Replace("\\", "/")
+    let linkTarget = $"file:///%s{forwardPath}"
+    let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
+    printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
 
 
 /// Generate a link to the file at the given line number

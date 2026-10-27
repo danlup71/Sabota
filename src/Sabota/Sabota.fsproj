@@ -32,8 +32,8 @@
         <Compile Include="Config.fs" />
         <Compile Include="Args.fs" />
         <Compile Include="Visitor.fs" />
-        <Compile Include="Report.fs" />
         <Compile Include="Files.fs" />
+        <Compile Include="Report.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
     
