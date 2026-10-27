@@ -10,55 +10,31 @@ open Sabota.Report
 // src/Sabota/bin/Debug/net10.0/Sabota.exe -t resources/Test1/Test1.fsproj -p resources/Sample1/Sample1.fsproj -f resources/Sample1/Sample3.fs
 
 loadSettings ()
-|> Result.bind (fun defaults ->
+|> Result.bind (fun config ->
 
-    let mutationCategories = defaults.Categories
+    let target = deriveFileTarget config
 
-    // Extract testProject and solutionRoot from defaults (guaranteed to be present)
-    let testProject = Path.GetFullPath defaults.TestProject
-    let solutionRoot = Path.GetFullPath defaults.SolutionRoot
-
-    // Derive FileTarget from defaults
-    let target =
-        match defaults.File, defaults.Directory with
-        | Some files, _ ->
-            let file_list = files.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
-            File (List.map Path.GetFullPath file_list)
-        | _, Some dirs ->
-            let dir_list = dirs.Split(',') |> Array.map (fun s -> s.Trim()) |> Array.toList
-            Directory (List.map Path.GetFullPath dir_list)
-        | _, _ ->
-            Directory [Path.GetFullPath solutionRoot]
-
-    validatePaths testProject solutionRoot target
+    validatePaths config.TestProject config.SolutionRoot target
     |> Result.bind (fun _ ->
 
         // Create a single work folder and copy the solution once for all files
         let workFolder = createWorkFolder ()
-        let workSolutionDir = copySolutionToWorkFolder solutionRoot workFolder
+        let workSolutionDir = copySolutionToWorkFolder config.SolutionRoot workFolder
 
         // Copy the test project to the work folder (it may be outside the solution root)
-        let workTestPrj = copyProjectToWorkFolder testProject workFolder
+        let workTestPrj = copyProjectToWorkFolder config.TestProject workFolder
 
-        // Fix ProjectReference paths in the copied test project so they point to the correct
-        // locations inside the work folder's solution directory
-        fixProjectReferences testProject workTestPrj solutionRoot workFolder
+        fixProjectReferences config.TestProject workTestPrj config.SolutionRoot workFolder
 
-        // Copy global.json to the work folder so dotnet test uses the correct test runner
-        // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
-        copyGlobalJson solutionRoot workFolder
+        copyGlobalJson config.SolutionRoot workFolder
 
-        // Build the test project only once after copying the working tree.
-        // This allows using --no-restore during mutation iterations for better performance
         build workTestPrj
 
         let startTime = DateTime.Now
 
-        let files = discoverFiles target
-
         let result =
-            files
-            |> List.collect (fun file -> processFile file workFolder workTestPrj mutationCategories solutionRoot)
+            discoverFiles target
+            |> List.collect (fun file -> processFile file workFolder workTestPrj config.Categories config.SolutionRoot)
 
         let executionTime = DateTime.Now - startTime
 

@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Xml.Linq
 open Sabota.Args
+open Sabota.Config
 open Sabota.MutationCandidates
 
 let printfnColor (color: ConsoleColor) text : 'a =
@@ -208,6 +209,19 @@ let isExcludedFile (file: string) : bool =
     let parts = file.Split([|'\\'; '/'|], StringSplitOptions.RemoveEmptyEntries)
     parts |> Array.exists (fun part -> excludedBuildDirs.Contains(part.ToLower()))
 
+/// Derive a FileTarget from ConfigDefaults, parsing comma-separated file or directory paths.
+/// Defaults to the solution root directory if neither file nor directory is specified.
+let deriveFileTarget (config: ConfigDefaults) : FileTarget =
+    match config.File, config.Directory with
+    | Some files, _ ->
+        let file_list = files.Split(',') |> Array.map _.Trim() |> Array.toList
+        File file_list
+    | _, Some dirs ->
+        let dir_list = dirs.Split(',') |> Array.map _.Trim() |> Array.toList
+        Directory dir_list
+    | _, _ ->
+        Directory [config.SolutionRoot]
+
 /// Discover all .fs files from a FileTarget, excluding build artifact directories.
 /// For File targets, returns the files as-is.
 /// For Directory targets, recursively scans for *.fs files, filtering out excluded directories.
@@ -380,6 +394,8 @@ type TestRunnerOutcome =
     | TestsFailed
     | BuildFailed
 
+/// Build the test project only once after copying the working tree.
+/// This allows using --no-restore during mutation iterations for better performance
 let build (filePath: string) : unit =
     printfn $"Building test project: {filePath} {timestamp ()}"
     if not (File.Exists filePath) then

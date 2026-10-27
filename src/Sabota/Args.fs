@@ -106,9 +106,11 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
         let fileOpt, directoryOpt =
             match cli.Target with
             | Some (File files) ->
-                Some (String.concat "," files), None
+                let abs_files = List.map Path.GetFullPath files
+                Some (String.concat "," abs_files), None
             | Some (Directory dirs) ->
-                None, Some (String.concat "," dirs)
+                let abs_dirs = List.map Path.GetFullPath dirs
+                None, Some (String.concat "," abs_dirs)
             | None ->
                 match config.File, config.Directory with
                 | Some f, _ -> Some f, None
@@ -127,8 +129,8 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
         // Build merged ConfigDefaults with all resolved values
         let mergedConfig =
             {
-                TestProject = testProject
-                SolutionRoot = solutionRoot
+                TestProject = Path.GetFullPath testProject
+                SolutionRoot = Path.GetFullPath solutionRoot
                 File = fileOpt
                 Directory = directoryOpt
                 Categories = mutationCategories
