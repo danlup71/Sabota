@@ -1,7 +1,5 @@
 module Tests._004_Report
 
-open System
-open System.IO
 open Xunit
 open FSharp.Compiler.Text
 open Sabota.MutationTypes
@@ -180,13 +178,13 @@ let ``11. MutationResult contains all required fields`` () =
         Link = generateLink "test.fs" range
     }
     // Assert
-    |> TestApp.Assert_Result_MutationId 1
-    |> TestApp.Assert_Result_MutationType TrueToFalse
-    |> TestApp.Assert_Result_File "test.fs"
-    |> TestApp.Assert_Result_OutcomeStatus Killed
-    |> TestApp.Assert_Result_PreviewOriginal_NonEmpty
-    |> TestApp.Assert_Result_PreviewMutated_NonEmpty
-    |> TestApp.Assert_Result_Link_NonEmpty
+    |> TestApp.Assert_MutationResult_MutationId_Equal 1
+    |> TestApp.Assert_MutationResult_Type_Equal TrueToFalse
+    |> TestApp.Assert_MuttionResult_File_Equal "test.fs"
+    |> TestApp.Assert_MutationResult_OutcomeStatus_Equal Killed
+    |> TestApp.Assert_MutationResult_PreviewOriginal_NonEmpty
+    |> TestApp.Assert_MutationResult_PreviewMutated_NonEmpty
+    |> TestApp.Assert_MutationResult_Link_NonEmpty
     |> ignore
 
 [<Fact>]
@@ -221,12 +219,12 @@ let ``12. full pipeline generates MutationResult with previews`` () =
             Link = generateLink candidate.File candidate.Range
         }
         // Assert
-        |> TestApp.Assert_Result_PreviewOriginal_NonEmpty
-        |> TestApp.Assert_Result_PreviewMutated_NonEmpty
-        |> TestApp.Assert_Result_Link_NonEmpty
-        |> TestApp.Assert_Result_Link_Contains "file://"
-        |> TestApp.Assert_Result_PreviewOriginal_Contains "true"
-        |> TestApp.Assert_Result_PreviewMutated_Contains "<span class=\"mutation-highlight\">"
+        |> TestApp.Assert_MutationResult_PreviewOriginal_NonEmpty
+        |> TestApp.Assert_MutationResult_PreviewMutated_NonEmpty
+        |> TestApp.Assert_MutationResult_Link_NonEmpty
+        |> TestApp.Assert_MutationResult_Link_Contains "file://"
+        |> TestApp.Assert_MutationResult_PreviewOriginal_Contains "true"
+        |> TestApp.Assert_MutationResult_PreviewMutated_Contains "<span class=\"mutation-highlight\">"
         |> ignore
     finally
         TestApp.CleanSimulatedEnvironment tempDir
@@ -318,7 +316,7 @@ let check x =
     let conditionToNot = candidates |> List.filter (fun c -> c.Kind = MutationKind.ConditionToNotCondition)
     Assert.Single conditionToNot |> ignore
 
-    let candidate = conditionToNot.[0]
+    let candidate = conditionToNot[0]
     let range = candidate.Range
     
     // Assert
@@ -327,14 +325,13 @@ let check x =
     
     // Extract the line text
     let lines = source.Split('\n')
-    let line = lines.[range.StartLine - 1]
+    let line = lines[range.StartLine - 1]
     Assert.Equal("    if x > 0 then", line)
     
     // The F# parser includes the leading space in the condition's range
     let startCol0 = range.StartColumn - 1  // convert to 0-based
-    let endCol = range.EndColumn            // already exclusive
+    let endCol = range.EndColumn            // already exclusive   
     let rangeText = line.Substring(startCol0, endCol - startCol0)
-    
     // The range includes the leading space: " x > 0"
     Assert.Equal(" x > 0", rangeText)
     

@@ -217,9 +217,7 @@ type TestApp =
         let files =
             fileNames
             |> List.map (fun name ->
-                let path = Path.Combine(baseDir, name)
-                File.WriteAllText(path, "let x = 1")
-                path
+                TestApp.CreateFileWithContent(baseDir, name, "let x = 1")
             )
 
         let directories =
@@ -230,7 +228,7 @@ type TestApp =
                 path
             )
 
-        File.WriteAllText(testPrj, "<Project/>")
+        TestApp.CreateFileWithContent(baseDir, testProjectName, "<Project/>") |> ignore
 
         {
             BaseDir = baseDir
@@ -397,70 +395,70 @@ type TestApp =
 
     /// Assert that a MutationResult has the expected MutationId.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_MutationId (expected : int) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_MutationId_Equal (expected : int) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Equal(expected, result.MutationId)
             result
 
     /// Assert that a MutationResult has the expected MutationType.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_MutationType (expected : MutationKind) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_Type_Equal (expected : MutationKind) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Equal(expected, result.MutationType)
             result
 
     /// Assert that a MutationResult has the expected File path.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_File (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MuttionResult_File_Equal (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Equal(expected, result.File)
             result
 
     /// Assert that a MutationResult Outcome has the expected Status.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_OutcomeStatus (expected : Sabota.Report.MutationStatus) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_OutcomeStatus_Equal (expected : Sabota.Report.MutationStatus) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Equal(expected, result.Outcome.Status)
             result
 
     /// Assert that a MutationResult PreviewOriginal is non-empty.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_PreviewOriginal_NonEmpty : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_PreviewOriginal_NonEmpty: Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.NotEmpty(result.PreviewOriginal)
             result
 
     /// Assert that a MutationResult PreviewMutated is non-empty.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_PreviewMutated_NonEmpty : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_PreviewMutated_NonEmpty: Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.NotEmpty(result.PreviewMutated)
             result
 
     /// Assert that a MutationResult Link is non-empty.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_Link_NonEmpty : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_Link_NonEmpty: Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.NotEmpty(result.Link)
             result
 
     /// Assert that a MutationResult Link contains the expected substring.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_Link_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_Link_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Contains(expected, result.Link)
             result
 
     /// Assert that a MutationResult PreviewOriginal contains the expected substring.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_PreviewOriginal_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_PreviewOriginal_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Contains(expected, result.PreviewOriginal)
             result
 
     /// Assert that a MutationResult PreviewMutated contains the expected substring.
     /// Returns a function MutationResult -> MutationResult for pipeline chaining.
-    static member Assert_Result_PreviewMutated_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
+    static member Assert_MutationResult_PreviewMutated_Contains (expected : string) : Sabota.Report.MutationResult -> Sabota.Report.MutationResult =
         fun result ->
             Assert.Contains(expected, result.PreviewMutated)
             result
@@ -510,9 +508,10 @@ type TestApp =
     ///   let parsed = TestApp.parseSource "let x = 1"
     static member parseSource (source: string) : ParsedInput =
         let checker = FSharpChecker.Create()
-        let tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".fs")
+        let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())
+        Directory.CreateDirectory(tempDir) |> ignore
+        let tempFile = TestApp.CreateFileWithContent(tempDir, "temp.fs", source)
         try
-            File.WriteAllText(tempFile, source)
             let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| tempFile |] }
             let parseResult =
                 checker.ParseFile(
@@ -522,8 +521,7 @@ type TestApp =
                 |> Async.RunSynchronously
             parseResult.ParseTree
         finally
-            if File.Exists tempFile then
-                File.Delete(tempFile)
+            TestApp.CleanSimulatedEnvironment(tempDir)
 
     /// Assert that a file's content contains the expected substring.
     /// Returns a function string -> string for pipeline chaining (string is the file path).
@@ -614,8 +612,7 @@ type TestApp =
     ///       TestApp.CleanSimulatedEnvironment baseDir
     static member CreateMutationTestEnv(source : string, kind : MutationKind, categories : MutationCategory list) : string * string * MutationCandidate =
         let baseDir = TestApp.CreateSimulatedBaseDir()
-        let filePath = Path.Combine(baseDir, "test.fs")
-        File.WriteAllText(filePath, source)
+        let filePath = TestApp.CreateFileWithContent(baseDir, "test.fs", source)
         let parsed = TestApp.parseSource source
         let candidates = Sabota.Visitor.findMutationCandidates categories filePath parsed
         let candidate = candidates |> List.find (fun c -> c.Kind = kind)
