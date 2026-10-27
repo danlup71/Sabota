@@ -5,6 +5,16 @@ open System.IO
 open System.Text.Json
 open Sabota.MutationTypes
 
+type ConfigDefaults = {
+    TestProject : string option
+    SolutionRoot : string option
+    File : string option
+    Directory : string option
+    Categories : MutationCategory list
+}
+
+let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota_config.json")
+
 let categoryMap : Map<string, MutationCategory> =
     Map.ofList [
         "Equality", MutationCategory.Equality
@@ -48,13 +58,6 @@ let parseCategoriesString (categoriesStr : string) : MutationCategory list =
     )
     |> Array.toList
 
-type ConfigDefaults = {
-    TestProject : string option
-    SolutionRoot : string option
-    File : string option
-    Directory : string option
-    Categories : MutationCategory list
-}
 
 let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
     let configDir =
@@ -62,7 +65,7 @@ let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
         | null -> Environment.CurrentDirectory
         | dir -> dir
     path.Split(',')
-    |> Array.map (fun p -> p.Trim())
+    |> Array.map _.Trim()
     |> Array.map (fun p ->
         // If the path contains a rooted path (e.g., "-d D:\path"), extract it
         let separators : char array = [|' '; '\t'|]
@@ -126,4 +129,4 @@ let loadConfig (configPath : string) : ConfigDefaults =
             Categories = categories
         }
 
-let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota_config.json")
+

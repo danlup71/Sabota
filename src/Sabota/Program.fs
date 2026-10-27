@@ -6,7 +6,6 @@ open Sabota.Config
 open Sabota.Files
 open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
-open Sabota.MutationTypes
 open Sabota.Visitor
 open Sabota.Report
 
@@ -32,11 +31,11 @@ let checker = FSharpChecker.Create()
 let config = loadConfig defaultConfigPath
 
 // Parse CLI args
-let cliArgs = parseArgs (System.Environment.GetCommandLineArgs())
+let cliArgs = parseArgs (Environment.GetCommandLineArgs())
 
 match cliArgs with
 | Error msg ->
-    eprintfn "Error: %s" msg
+    eprintfn $"Error: %s{msg}"
     eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
     eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
     eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
@@ -83,7 +82,7 @@ match cliArgs with
     let mutationCategories =
         match cli.Categories with
         | Some cats ->
-            printfn "Using categories from CLI argument: %s" cats
+            printfn $"Using categories from CLI argument: %s{cats}"
             parseCategoriesString cats
         | None -> config.Categories
 
@@ -98,7 +97,7 @@ match cliArgs with
     // Validate
     match validate testProject solutionRoot target with
     | Error msg ->
-        eprintfn "Error: %s" msg
+        eprintfn $"Error: %s{msg}"
         exit 1
     | Ok _ -> ()
 
@@ -191,7 +190,7 @@ match cliArgs with
     // (required for .NET 10 SDK Microsoft.Testing.Platform opt-in)
     copyGlobalJson solutionRoot workFolder
 
-    // Build the test project once after copying the working tree
+    // Build the test project only once after copying the working tree.
     // This allows using --no-restore during mutation iterations for better performance
     build workTestPrj
 
@@ -215,8 +214,8 @@ match cliArgs with
 
     let reportPath = generateHtmlReport result executionTime
     let forwardPath = reportPath.Replace("\\", "/")
-    let linkTarget = sprintf "file:///%s" forwardPath
-    let clickable = sprintf "\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\" linkTarget reportPath
+    let linkTarget = $"file:///%s{forwardPath}"
+    let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
     printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
 
     0 |> ignore
