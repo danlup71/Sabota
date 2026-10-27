@@ -87,5 +87,17 @@ let CustomFsName = "custom.fs"
 /// Set of excluded build directory names used in excluded directory tests.
 let ExcludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
 
+/// Config file name used in config loading tests.
+let ConfigFileName = "sabota_config.json"
+
+/// Config subdirectory name used in config path resolution tests.
+let ConfigSubDirName = "config"
+
+/// Resources directory name used in config path resolution tests (relative path target).
+let ResourcesDirName = "resources"
+
+/// UnitTest subdirectory name used in config path resolution tests.
+let UnitTestDirName = "UnitTest"
+
 
 

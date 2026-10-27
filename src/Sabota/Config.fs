@@ -74,12 +74,12 @@ let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
             parts
             |> Array.tryFind (fun (part : string) -> Path.IsPathRooted part)
         match rootedPart with
-        | Some rooted -> rooted
+        | Some rooted -> Path.GetFullPath rooted
         | None ->
             if Path.IsPathRooted p then
-                p
+                Path.GetFullPath p
             else
-                Path.Combine(configDir, p)
+                Path.GetFullPath (Path.Combine(configDir, p))
     )
     |> String.concat ","
 

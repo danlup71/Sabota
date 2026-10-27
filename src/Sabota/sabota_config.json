@@ -5,14 +5,14 @@
     "directory": "",
     "categories":
     {
-        "Equality": true,
-        "RelationalBoundary": true,
-        "RelationalReversal": true,
-        "Boolean": true,
-        "Arithmetic": true,
-        "Conditional": true,
+        "Equality": false,
+        "RelationalBoundary": false,
+        "RelationalReversal": false,
+        "Boolean": false,
+        "Arithmetic": false,
+        "Conditional": false,
         "Option": true,
         "ReturnListValue": true,
-        "ControlFlow": true
+        "ControlFlow": false
     }
 }

@@ -682,4 +682,99 @@ type TestApp =
                 Assert.False(Directory.Exists(path), $"Expected '{dir}' to not be copied")
             tgtDir
 
+    /// Assert that a resolved path is absolute (normalized, no .. components).
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_Path_IsAbsolute : string -> string =
+        fun path ->
+            Assert.True(Path.IsPathRooted(path), $"Expected path to be absolute: {path}")
+            path
+
+    /// Assert that a resolved path does not contain '..' components.
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_Path_NoDotDot : string -> string =
+        fun path ->
+            Assert.False(path.Contains(".."), $"Expected path to not contain '..': {path}")
+            path
+
+    /// Assert that a resolved path equals the expected absolute path.
+    /// Returns a function string -> string for pipeline chaining.
+    static member Assert_Path_Equal (expected : string) : string -> string =
+        fun actual ->
+            Assert.Equal(expected, actual)
+            actual
+
+    /// Assert that a ConfigDefaults record has the expected TestProject path.
+    /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_TestProject (expected : string) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.Equal(expected, config.TestProject)
+            config
+
+    /// Assert that a ConfigDefaults record has the expected SolutionRoot path.
+    /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_SolutionRoot (expected : string) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.Equal(expected, config.SolutionRoot)
+            config
+
+    /// Assert that a ConfigDefaults record has the expected File option.
+    /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_File (expected : string option) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.Equal(expected, config.File)
+            config
+
+    /// Assert that a ConfigDefaults record has the expected Directory option.
+    /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_Directory (expected : string option) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.Equal(expected, config.Directory)
+            config
+
+    /// Assert that a ConfigDefaults record has the expected number of categories.
+    /// Returns a function ConfigDefaults -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_Categories_Count (expected : int) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.Equal(expected, List.length config.Categories)
+            config
+
+    /// Assert that a ConfigDefaults record's categories contain the expected category.
+    /// Returns a function MutationCategory -> ConfigDefaults for pipeline chaining.
+    static member Assert_Config_Categories_Contains (category : MutationCategory) : Sabota.Config.ConfigDefaults -> Sabota.Config.ConfigDefaults =
+        fun config ->
+            Assert.True(List.contains category config.Categories, $"Expected category {category} in config categories")
+            config
+
+    /// Escape a string for use in a JSON string value (handles backslashes and quotes).
+    static member escapeJsonString (s : string) : string =
+        s.Replace("\\", "\\\\").Replace("\"", "\\\"")
+
+    /// Create a JSON config file with the specified fields and return its path.
+    /// Returns the full path to the created config file.
+    static member CreateConfigFile(baseDir : string, fileName : string, testProject : string, solutionRoot : string, file : string option, directory : string option, categories : (string * bool) list) : string =
+        let escape = TestApp.escapeJsonString
+        let categoriesJson =
+            categories
+            |> List.map (fun (name, enabled) ->
+                let enabledStr = if enabled then "true" else "false"
+                sprintf "        \"%s\": %s" name enabledStr
+            )
+            |> String.concat ",\n"
+        let fileValue = Option.defaultValue "" file |> escape
+        let dirValue = Option.defaultValue "" directory |> escape
+        let json =
+            "{\n" +
+            sprintf "    \"testProject\": \"%s\",\n" (escape testProject) +
+            sprintf "    \"solutionRoot\": \"%s\",\n" (escape solutionRoot) +
+            sprintf "    \"file\": \"%s\",\n" fileValue +
+            sprintf "    \"directory\": \"%s\",\n" dirValue +
+            "    \"categories\":\n" +
+            "    {\n" +
+            categoriesJson + "\n" +
+            "    }\n" +
+            "}"
+        let path = Path.Combine(baseDir, fileName)
+        File.WriteAllText(path, json)
+        path
+
 
