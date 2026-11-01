@@ -5,7 +5,6 @@ open System.IO
 open System.Xml.Linq
 open Sabota.Args
 open Sabota.Files
-open Sabota.Config
 open Sabota.MultiError
 open Sabota.MutationTypes
 open Sabota.Mutator

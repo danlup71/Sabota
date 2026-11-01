@@ -65,7 +65,7 @@ The full source code used to produce these binaries is available in this reposit
 - Performance optimizations where needed
 
 
-### Try it on your project [^1]
+### Try it on your project 
 Sabota. Friendly neighborhood code vandalism for F#.
 
 Mutation testing works by introducing small changes into your code and verifying that your tests detect the behavioural change.
@@ -81,5 +81,4 @@ Suggestions, bug reports, and feedback are welcome. Sabota is still very much in
 
 
 
-[^1]: Because your test suite is lying to you, and we're here to prove it.
 
