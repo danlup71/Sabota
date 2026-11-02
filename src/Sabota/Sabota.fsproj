@@ -25,6 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="Performance.fs" />
         <Compile Include="MutationTypes.fs" />
         <Compile Include="MutationCandidates.fs" />
         <Compile Include="MutationDefinitions.fs" />

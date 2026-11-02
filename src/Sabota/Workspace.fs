@@ -1,6 +1,7 @@
 ﻿module Sabota.Workspace
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Xml.Linq
 open Sabota.Args
@@ -8,6 +9,7 @@ open Sabota.Files
 open Sabota.MultiError
 open Sabota.MutationTypes
 open Sabota.Mutator
+open Sabota.Performance
 
 /// Create a single work folder and copy the solution once for all files
 let createWorkFolder () : string =
@@ -155,6 +157,8 @@ let copyGlobalJson (solutionRoot: string) (workFolder: string) : unit =
 
 let prepareWorkspace config : Result<Workspace,MultiError> =
     
+    let target = deriveFileTarget config
+
     let workFolder = createWorkFolder ()
             
     let workSolutionDir = copySolutionToWorkFolder config.SolutionRoot workFolder
@@ -173,7 +177,7 @@ let prepareWorkspace config : Result<Workspace,MultiError> =
          SolutionDir = config.SolutionRoot
          TestProject = workTestPrj
          Config = config
-         Target = FileTarget.Empty()
+         Target = target
         }
         
     Result.Ok ws
@@ -192,17 +196,31 @@ let createWorkspace (config:ConfigDefaults) =
     ))
             
 let runMutationAnalysis workspace :Result<RunResult,MultiError> =
-    let startTime = DateTime.Now
+    let collector = createCollector ()
+    let overallSw = Stopwatch.StartNew()
+
+    // Time file discovery
+    let discoverSw = Stopwatch.StartNew()
+    let files = discoverFiles workspace.Target
+    stopAndRecord collector "file discovery" discoverSw |> ignore
+
+    // HARDCODED: set to true to enable split build/test timing
+    let splitMode = true
 
     let result =
-        discoverFiles workspace.Target
-        |> List.collect (fun file -> processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
-                                         workspace.SolutionDir)
+        files
+        |> List.collect (fun file ->
+            processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
+                         workspace.SolutionDir collector splitMode
+        )
 
-    let executionTime = DateTime.Now - startTime
+    let executionTime = stopAndRecord collector "overall" overallSw
 
     deleteWorkFolder workspace.Folder
-    
+
+    // Print timing summary to console
+    printSummary collector executionTime
+
     Result.Ok {
         runResult = result
         executionTime = executionTime

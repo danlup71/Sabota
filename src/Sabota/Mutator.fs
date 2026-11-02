@@ -1,11 +1,14 @@
 ﻿module Sabota.Mutator
 
+open System
+open System.Diagnostics
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Sabota.Files
 open Sabota.MuationDefinitions
 open Sabota.MutationCandidates
 open Sabota.MutationTypes
+open Sabota.Performance
 open Sabota.Visitor
 
 
@@ -179,7 +182,9 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
         Link = generateLink candidate.File candidate.Range
     }
     
-let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot  : list<MutationResult> =
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) : list<MutationResult> =
+    // Time file parsing
+    let parseSw = Stopwatch.StartNew()
     let source = File.ReadAllText(file)
 
     printfn $"parse file: {file} {timestamp ()}"
@@ -196,22 +201,33 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
             FSharp.Compiler.Text.SourceText.ofString source,
             parsingOptions)
         |> Async.RunSynchronously
+    stopAndRecord collector "parse file" parseSw |> ignore
 
     printfn "detect mutation candidates"
 
+    // Time candidate discovery
+    let candidatesSw = Stopwatch.StartNew()
     let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
+    stopAndRecord collector "find candidates" candidatesSw |> ignore
 
-    // Copy the source file to the work folder (it may be outside the solution root)
+    // Time file copy
+    let copySw = Stopwatch.StartNew()
     let workFile = copyFileToWorkFolder file solutionRoot workFolder
+    stopAndRecord collector "copy file" copySw |> ignore
 
     let results =
         candidates
         |> List.map (fun candidate ->
             // Apply mutation to the COPY in the work folder
             let workCandidate = { candidate with File = workFile }
-            applyMutation workCandidate
 
-            let testOutcome = test workTestPrj solutionRoot
+            // Time apply mutation
+            let applySw = Stopwatch.StartNew()
+            applyMutation workCandidate
+            stopAndRecord collector "apply mutation" applySw |> ignore
+
+            // Time test execution
+            let testOutcome = test workTestPrj solutionRoot splitMode (Some collector)
             let outcome =
                 match testOutcome with
                 | TestRunnerOutcome.BuildFailed ->
@@ -230,7 +246,10 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
                         Interpretation = candidate.SurvivorInterpretation
                     }
 
+            // Time restore file
+            let restoreSw = Stopwatch.StartNew()
             restoreFile file workFile
+            stopAndRecord collector "restore file" restoreSw |> ignore
 
             createMutationResult candidate source outcome
         )

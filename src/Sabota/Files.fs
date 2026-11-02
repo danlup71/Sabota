@@ -1,12 +1,14 @@
 module Sabota.Files
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Xml.Linq
 open Sabota.Args
 open Sabota.Config
 open Sabota.MutationCandidates
 open Sabota.MutationTypes
+open Sabota.Performance
 
 let printfnColor (color: ConsoleColor) text : 'a =
     Console.ForegroundColor <- color
@@ -286,38 +288,97 @@ let build (filePath: string) : unit =
         printfn $"{error}"
         invalidArg (nameof filePath) "Initial build of test project failed"
 
-let test (filePath: string) (solutionRoot: string) : TestRunnerOutcome =
+let test (filePath: string) (solutionRoot: string) (splitMode: bool) (collector: TimingCollector option) : TestRunnerOutcome =
     printf $"  -> testing {timestamp ()}"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
-    let startInfo = System.Diagnostics.ProcessStartInfo()
-    startInfo.FileName <- "dotnet"
-    startInfo.Arguments <- $"test {filePath} --no-restore"
-    startInfo.WorkingDirectory <- solutionRoot
-    startInfo.UseShellExecute <- false
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
+    if splitMode && collector.IsSome then
+        let col = Option.defaultValue (createCollector ()) collector
+        // Split mode: run build and test separately
+        let buildSw = Stopwatch.StartNew()
+        let buildOutcome =
+            let startInfo = System.Diagnostics.ProcessStartInfo()
+            startInfo.FileName <- "dotnet"
+            startInfo.Arguments <- $"build {filePath} --no-restore"
+            startInfo.WorkingDirectory <- solutionRoot
+            startInfo.UseShellExecute <- false
+            startInfo.RedirectStandardOutput <- true
+            startInfo.RedirectStandardError <- true
+            use proc = System.Diagnostics.Process.Start(startInfo)
+            proc.WaitForExit()
+            let output = proc.StandardOutput.ReadToEnd()
+            let error = proc.StandardError.ReadToEnd()
+            buildSw.Stop()
+            record col "build" buildSw.Elapsed
+            match proc.ExitCode with
+            | 0 -> true
+            | _ ->
+                printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
+                printfn $"{output}"
+                false
 
-    use proc = System.Diagnostics.Process.Start(startInfo)
+        if buildOutcome then
+            let testSw = Stopwatch.StartNew()
+            let startInfo = System.Diagnostics.ProcessStartInfo()
+            startInfo.FileName <- "dotnet"
+            startInfo.Arguments <- $"test {filePath} --no-build --no-restore"
+            startInfo.WorkingDirectory <- solutionRoot
+            startInfo.UseShellExecute <- false
+            startInfo.RedirectStandardOutput <- true
+            startInfo.RedirectStandardError <- true
+            use proc = System.Diagnostics.Process.Start(startInfo)
+            let outputTask = proc.StandardOutput.ReadToEndAsync()
+            let errorTask = proc.StandardError.ReadToEndAsync()
+            proc.WaitForExit()
+            testSw.Stop()
+            record col "test" testSw.Elapsed
+            let output = outputTask.Result
+            let error = errorTask.Result
+            match proc.ExitCode with
+            | 0 ->
+                printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
+                TestsPassed
+            | _ ->
+                printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
+                TestsFailed
+        else
+            TestRunnerOutcome.BuildFailed
 
-    let outputTask  = proc.StandardOutput.ReadToEndAsync() 
-    let errorTask  = proc.StandardError.ReadToEndAsync() 
-    proc.WaitForExit()
-    let output = outputTask.Result
-    let error = errorTask.Result
-    
-    match proc.ExitCode with
-    | 0 ->
-        printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
-        TestsPassed
+    else
+        // Default mode: single test command
+        let sw = Stopwatch.StartNew()
+        let startInfo = System.Diagnostics.ProcessStartInfo()
+        startInfo.FileName <- "dotnet"
+        startInfo.Arguments <- $"test {filePath} --no-restore"
+        startInfo.WorkingDirectory <- solutionRoot
+        startInfo.UseShellExecute <- false
+        startInfo.RedirectStandardOutput <- true
+        startInfo.RedirectStandardError <- true
 
-    | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
-        printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
-        printfn $"{output}"
-        TestRunnerOutcome.BuildFailed
+        use proc = System.Diagnostics.Process.Start(startInfo)
 
-    | _ ->
-        printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
-        TestsFailed
+        let outputTask  = proc.StandardOutput.ReadToEndAsync() 
+        let errorTask  = proc.StandardError.ReadToEndAsync() 
+        proc.WaitForExit()
+        sw.Stop()
+        match collector with
+        | Some col -> record col "test" sw.Elapsed
+        | None -> ()
+        let output = outputTask.Result
+        let error = errorTask.Result
+        
+        match proc.ExitCode with
+        | 0 ->
+            printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
+            TestsPassed
+
+        | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
+            printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
+            printfn $"{output}"
+            TestRunnerOutcome.BuildFailed
+
+        | _ ->
+            printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
+            TestsFailed
         
