@@ -145,6 +145,8 @@ type Workspace =
       TestProject : string
       Config: ConfigDefaults
       Target: FileTarget
+      TestProjectArtifactsCache : string option
+      SolutionArtifactsCache : string option
     }
     
 type RunResult =

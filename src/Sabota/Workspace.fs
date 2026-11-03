@@ -170,7 +170,19 @@ let prepareWorkspace config : Result<Workspace,MultiError> =
     copyGlobalJson config.SolutionRoot workFolder
 
     build workTestPrj
-   
+
+    // Cache build artifacts after the initial successful build
+    let workTestPrjDir =
+        match Path.GetDirectoryName workTestPrj with
+        | null -> Environment.CurrentDirectory
+        | dir -> dir
+
+    let testArtifactCache = Path.Combine(workFolder, ".cache-test-artifacts")
+    let solutionArtifactCache = Path.Combine(workFolder, ".cache-solution-artifacts")
+
+    cacheBuildArtifacts workTestPrjDir testArtifactCache
+    cacheBuildArtifacts workSolutionDir solutionArtifactCache
+
     let ws : Workspace = 
         {
          Folder = workFolder
@@ -178,6 +190,8 @@ let prepareWorkspace config : Result<Workspace,MultiError> =
          TestProject = workTestPrj
          Config = config
          Target = target
+         TestProjectArtifactsCache = Some testArtifactCache
+         SolutionArtifactsCache = Some solutionArtifactCache
         }
         
     Result.Ok ws
@@ -212,6 +226,7 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
         |> List.collect (fun file ->
             processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
                          workspace.SolutionDir collector splitMode
+                         workspace.TestProjectArtifactsCache workspace.SolutionArtifactsCache
         )
 
     let executionTime = stopAndRecord collector "overall" overallSw

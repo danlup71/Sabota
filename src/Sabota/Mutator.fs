@@ -182,7 +182,7 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
         Link = generateLink candidate.File candidate.Range
     }
     
-let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) : list<MutationResult> =
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) (testArtifactCache : string option) (solutionArtifactCache : string option) : list<MutationResult> =
     // Time file parsing
     let parseSw = Stopwatch.StartNew()
     let source = File.ReadAllText(file)
@@ -249,6 +249,17 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
             // Time restore file
             let restoreSw = Stopwatch.StartNew()
             restoreFile file workFile
+            // Restore build artifacts so the next mutation starts with a clean build state
+            let workTestPrjDir =
+                match Path.GetDirectoryName workTestPrj with
+                | null -> Environment.CurrentDirectory
+                | dir -> dir
+            match testArtifactCache with
+            | Some cache -> restoreBuildArtifacts cache workTestPrjDir
+            | None -> ()
+            match solutionArtifactCache with
+            | Some cache -> restoreBuildArtifacts cache workFolder
+            | None -> ()
             stopAndRecord collector "restore file" restoreSw |> ignore
 
             createMutationResult candidate source outcome

@@ -112,6 +112,51 @@ let restoreFile (originalFile: string) (workFile: string) : unit =
     if File.Exists originalFile && File.Exists workFile then
         File.Copy(originalFile, workFile, overwrite = true)
 
+/// Copy a subdirectory (e.g., obj/ or bin/) from source to target, overwriting existing files.
+let rec copyArtifactDirectory (source: string) (target: string) : unit =
+    if not (Directory.Exists source) then
+        ()
+    else
+        Directory.CreateDirectory(target) |> ignore
+        Directory.GetFiles(source)
+        |> Array.iter (fun file ->
+            let fileName = Path.GetFileName file
+            let targetFile = Path.Combine(target, fileName)
+            File.Copy(file, targetFile, overwrite = true)
+        )
+        Directory.GetDirectories(source)
+        |> Array.iter (fun dir ->
+            let dirName = Path.GetFileName dir
+            copyArtifactDirectory dir (Path.Combine(target, dirName))
+        )
+
+/// Cache build artifacts (obj/ and bin/) from a project directory to a cache location.
+let cacheBuildArtifacts (projectDir: string) (cacheDir: string) : unit =
+    Directory.CreateDirectory(cacheDir) |> ignore
+    ["obj"; "bin"]
+    |> List.iter (fun subDir ->
+        let sourcePath = Path.Combine(projectDir, subDir)
+        let targetPath = Path.Combine(cacheDir, subDir)
+        if Directory.Exists sourcePath then
+            copyArtifactDirectory sourcePath targetPath
+            printfnColor ConsoleColor.Cyan $"Cached {subDir}/ artifacts from {projectDir}"
+    )
+
+/// Restore build artifacts (obj/ and bin/) from a cache location back to a project directory.
+let restoreBuildArtifacts (cacheDir: string) (projectDir: string) : unit =
+    if not (Directory.Exists cacheDir) then
+        ()
+    ["obj"; "bin"]
+    |> List.iter (fun subDir ->
+        let cachePath = Path.Combine(cacheDir, subDir)
+        let targetPath = Path.Combine(projectDir, subDir)
+        if Directory.Exists cachePath then
+            // Delete the current artifacts first to ensure a clean restore
+            if Directory.Exists targetPath then
+                Directory.Delete(targetPath, recursive = true)
+            copyArtifactDirectory cachePath targetPath
+    )
+
 /// Extract the inner expression from a "not (X)" text
 let stripNot (text: string) : string =
     let trimmed = text.Trim()
