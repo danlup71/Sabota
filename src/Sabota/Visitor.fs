@@ -248,6 +248,4 @@ let findMutationCandidates mutationCategories  (file: string) (parsedInput: Pars
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) -> modules |> List.iter visitModule
     | ParsedInput.SigFile _ -> ()
 
-    printfn $"Candidates Found: %A{acc.Length}"
-    
     List.rev acc

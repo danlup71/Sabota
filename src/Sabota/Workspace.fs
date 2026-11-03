@@ -218,8 +218,52 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
     let files = discoverFiles workspace.Target
     stopAndRecord collector "file discovery" discoverSw |> ignore
 
+    // Pre-scan: discover all mutations before processing
+    let mutationScanSw = Stopwatch.StartNew()
+    let summary = discoverAllMutations files workspace.Config.Categories
+    stopAndRecord collector "mutation discovery" mutationScanSw |> ignore
+
+    printfnColor ConsoleColor.Gray "**************************************************"
+    printfnColor ConsoleColor.Cyan $"  Discovered {summary.TotalMutations} candidates across {summary.TotalFiles} files..."
+    printfnColor ConsoleColor.Gray "**************************************************"
+
     // HARDCODED: set to true to enable split build/test timing
     let splitMode = true
+
+    // Progress tracking across all mutations
+    let mutable testsCompleted = 0
+    let mutable totalTestTime = TimeSpan.Zero
+    let totalTests = summary.TotalMutations
+
+    let outcomeLabel (outcome : TestRunnerOutcome) : string * ConsoleColor =
+        match outcome with
+        | TestRunnerOutcome.BuildFailed -> "BUILD FAILED", ConsoleColor.Black
+        | TestRunnerOutcome.TestsFailed -> "KILLED", ConsoleColor.DarkGreen
+        | TestRunnerOutcome.TestsPassed -> "SURVIVED", ConsoleColor.Red
+
+    let printProgress (kind : string, outcome : TestRunnerOutcome, testSw : Stopwatch) =
+        testsCompleted <- testsCompleted + 1
+        totalTestTime <- totalTestTime + testSw.Elapsed
+        let label, color = outcomeLabel outcome
+        let avgSeconds = totalTestTime.TotalSeconds / double testsCompleted
+        let remaining = totalTests - testsCompleted
+        let formatTime (totalSeconds : double) : string =
+            let secs = int64 totalSeconds
+            let h = secs / 3600L
+            let m = (secs % 3600L) / 60L
+            let s = secs % 60L
+            match h, m, s with
+            | 0L, 0L, _ -> $"{s}s"
+            | 0L, _, _ -> $"{m}m {s}s"
+            | _, _, _ -> $"{h}h {m}m {s}s"
+
+        let etaSeconds =
+            if remaining > 0 then
+                avgSeconds * double remaining
+            else
+                0.0
+        let lastSeconds = testSw.Elapsed.TotalSeconds
+        printfnColor color $"  [{testsCompleted}/{totalTests}] {label} | Last: {formatTime lastSeconds} | Avg: {formatTime avgSeconds} | ETA: {formatTime etaSeconds}"
 
     let result =
         files
@@ -227,6 +271,7 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
             processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
                          workspace.SolutionDir collector splitMode
                          workspace.TestProjectArtifactsCache workspace.SolutionArtifactsCache
+                         printProgress
         )
 
     let executionTime = stopAndRecord collector "overall" overallSw

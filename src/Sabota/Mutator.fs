@@ -182,12 +182,46 @@ let createMutationResult (candidate: MutationCandidate) (source: string) (outcom
         Link = generateLink candidate.File candidate.Range
     }
     
-let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) (testArtifactCache : string option) (solutionArtifactCache : string option) : list<MutationResult> =
+/// Parse a single file and return all mutation candidates enriched with definitions.
+let discoverMutationsForFile (file : string) (mutationCategories : MutationCategory list) : MutationCandidate list =
+    let source = File.ReadAllText(file)
+
+    let parsingOptions =
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| file |] }
+
+    let checker = FSharpChecker.Create()
+    
+    let parseResult =
+        checker.ParseFile(
+            file,
+            FSharp.Compiler.Text.SourceText.ofString source,
+            parsingOptions)
+        |> Async.RunSynchronously
+
+    findMutationCandidates mutationCategories file parseResult.ParseTree
+    |> List.map enrich
+
+/// Scan all target files and return a summary of discovered mutations per file.
+let discoverAllMutations (files : string list) (mutationCategories : MutationCategory list) : MutationDiscoverySummary =
+    let fileSummaries =
+        files
+        |> List.map (fun file ->
+            let candidates = discoverMutationsForFile file mutationCategories
+            { File = file; MutationCount = List.length candidates }
+        )
+
+    {
+        TotalFiles = List.length files
+        TotalMutations = fileSummaries |> List.sumBy (fun s -> s.MutationCount)
+        Files = fileSummaries
+    }
+
+
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) (testArtifactCache : string option) (solutionArtifactCache : string option) (onTestComplete : string * TestRunnerOutcome * Stopwatch -> unit) : list<MutationResult> =
     // Time file parsing
     let parseSw = Stopwatch.StartNew()
     let source = File.ReadAllText(file)
-
-    printfn $"parse file: {file} {timestamp ()}"
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
@@ -203,12 +237,13 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
         |> Async.RunSynchronously
     stopAndRecord collector "parse file" parseSw |> ignore
 
-    printfn "detect mutation candidates"
-
     // Time candidate discovery
     let candidatesSw = Stopwatch.StartNew()
     let candidates = findMutationCandidates mutationCategories file parseResult.ParseTree |> List.map enrich
     stopAndRecord collector "find candidates" candidatesSw |> ignore
+
+    let fileName = Path.GetFileName file
+    printfnColor ConsoleColor.DarkGray $"  {fileName}: {List.length candidates} candidates found"
 
     // Time file copy
     let copySw = Stopwatch.StartNew()
@@ -226,8 +261,14 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
             applyMutation workCandidate
             stopAndRecord collector "apply mutation" applySw |> ignore
 
+            // Print prefix before testing
+            printf $"  apply mutation {string candidate.Kind,-20} -> testing ->"
+
             // Time test execution
+            let testSw : Stopwatch = Stopwatch.StartNew()
             let testOutcome = test workTestPrj solutionRoot splitMode (Some collector)
+            testSw.Stop()
+            onTestComplete (string candidate.Kind, testOutcome, testSw)
             let outcome =
                 match testOutcome with
                 | TestRunnerOutcome.BuildFailed ->

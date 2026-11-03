@@ -745,6 +745,49 @@ type TestApp =
             Assert.True(List.contains category config.Categories, $"Expected category {category} in config categories")
             config
 
+    /// Assert that a MutationDiscoverySummary has the expected total number of files.
+    /// Returns a function MutationDiscoverySummary -> MutationDiscoverySummary for pipeline chaining.
+    static member Assert_Discovery_TotalFiles (expected : int) : MutationDiscoverySummary -> MutationDiscoverySummary =
+        fun summary ->
+            Assert.Equal(expected, summary.TotalFiles)
+            summary
+
+    /// Assert that a MutationDiscoverySummary has the expected total number of mutations.
+    /// Returns a function MutationDiscoverySummary -> MutationDiscoverySummary for pipeline chaining.
+    static member Assert_Discovery_TotalMutations (expected : int) : MutationDiscoverySummary -> MutationDiscoverySummary =
+        fun summary ->
+            Assert.Equal(expected, summary.TotalMutations)
+            summary
+
+    /// Assert that a MutationDiscoverySummary has at least the expected number of mutations.
+    /// Returns a function MutationDiscoverySummary -> MutationDiscoverySummary for pipeline chaining.
+    static member Assert_Discovery_TotalMutations_AtLeast (expected : int) : MutationDiscoverySummary -> MutationDiscoverySummary =
+        fun summary ->
+            Assert.True(summary.TotalMutations >= expected, $"Expected at least {expected} mutations, found {summary.TotalMutations}")
+            summary
+
+    /// Assert that a MutationDiscoverySummary's file list contains an entry for the expected file.
+    /// Returns a function MutationDiscoverySummary -> MutationDiscoverySummary for pipeline chaining.
+    static member Assert_Discovery_FileExists (expectedFile : string) : MutationDiscoverySummary -> MutationDiscoverySummary =
+        fun summary ->
+            let found = summary.Files |> List.exists (fun fs -> fs.File = expectedFile)
+            Assert.True(found, $"Expected file '{expectedFile}' in discovery summary")
+            summary
+
+    /// Assert that a FileMutationSummary has the expected mutation count.
+    /// Returns a function FileMutationSummary -> FileMutationSummary for pipeline chaining.
+    static member Assert_FileMutation_Count (expected : int) : FileMutationSummary -> FileMutationSummary =
+        fun fs ->
+            Assert.Equal(expected, fs.MutationCount)
+            fs
+
+    /// Assert that a MutationCandidate list has the expected number of candidates.
+    /// Returns a function MutationCandidate list -> MutationCandidate list for pipeline chaining.
+    static member Assert_Candidates_Count (expected : int) : MutationCandidate list -> MutationCandidate list =
+        fun candidates ->
+            Assert.Equal(expected, List.length candidates)
+            candidates
+
     /// Escape a string for use in a JSON string value (handles backslashes and quotes).
     static member escapeJsonString (s : string) : string =
         s.Replace("\\", "\\\\").Replace("\"", "\\\"")

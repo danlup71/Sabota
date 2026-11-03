@@ -15,6 +15,7 @@
         <Compile Include="_005_MutationTypesConsistency.fs" />
         <Compile Include="_006_ExcludedDirectories.fs" />
         <Compile Include="_007_ConfigLoading.fs" />
+        <Compile Include="_008_MutationDiscovery.fs" />
     </ItemGroup>
 
     <ItemGroup>

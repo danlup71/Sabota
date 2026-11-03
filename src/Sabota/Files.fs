@@ -20,6 +20,8 @@ let timestamp () : string =
     let now = DateTime.Now
     sprintf "[%02d:%02d:%02d.%03d]" now.Hour now.Minute now.Second (now.Millisecond / 10)
 
+let outputBuildError = false
+
 
 let rec copyDirectoryRecursive (sourceDir: string) (targetDir: string) : unit =
     Directory.CreateDirectory(targetDir) |> ignore
@@ -170,7 +172,6 @@ let applyMutation (mutation: MutationCandidate) : unit =
     let r = mutation.Range
     let mutable replacement = mutation.Replacement
 
-    printf $"apply mutation {mutation.Kind,-20} {timestamp ()}"
 
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"Source file not found: {filePath}"
@@ -329,12 +330,12 @@ let build (filePath: string) : unit =
         printfnColor ConsoleColor.DarkGreen $"  -> Build succeeded {timestamp ()}"
     | _ ->
         printfnColor ConsoleColor.Red $"  -> Build failed {timestamp ()}"
-        printfn $"{output}"
-        printfn $"{error}"
+        if outputBuildError then
+            printfn $"{output}"
+            printfn $"{error}"
         invalidArg (nameof filePath) "Initial build of test project failed"
 
 let test (filePath: string) (solutionRoot: string) (splitMode: bool) (collector: TimingCollector option) : TestRunnerOutcome =
-    printf $"  -> testing {timestamp ()}"
     if not (File.Exists filePath) then
         invalidArg (nameof filePath) $"File not found: {filePath}"
 
@@ -359,8 +360,6 @@ let test (filePath: string) (solutionRoot: string) (splitMode: bool) (collector:
             match proc.ExitCode with
             | 0 -> true
             | _ ->
-                printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
-                printfn $"{output}"
                 false
 
         if buildOutcome then
@@ -382,10 +381,8 @@ let test (filePath: string) (solutionRoot: string) (splitMode: bool) (collector:
             let error = errorTask.Result
             match proc.ExitCode with
             | 0 ->
-                printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
                 TestsPassed
             | _ ->
-                printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
                 TestsFailed
         else
             TestRunnerOutcome.BuildFailed
@@ -415,15 +412,11 @@ let test (filePath: string) (solutionRoot: string) (splitMode: bool) (collector:
         
         match proc.ExitCode with
         | 0 ->
-            printfnColor ConsoleColor.Red $"  -> SURVIVED {timestamp ()}"
             TestsPassed
 
         | _ when (output.Contains("Build FAILED") || output.Contains("error")) ->
-            printfnColor ConsoleColor.Black $"  -> BUILD FAILED {timestamp ()}"
-            printfn $"{output}"
             TestRunnerOutcome.BuildFailed
 
         | _ ->
-            printfnColor ConsoleColor.DarkGreen $"  -> KILLED {timestamp ()}"
             TestsFailed
         

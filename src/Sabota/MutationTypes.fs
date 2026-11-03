@@ -154,3 +154,16 @@ type RunResult =
         runResult: MutationResult list
         executionTime: TimeSpan
     }
+
+type FileMutationSummary =
+    {
+        File: string
+        MutationCount: int
+    }
+
+type MutationDiscoverySummary =
+    {
+        TotalFiles: int
+        TotalMutations: int
+        Files: FileMutationSummary list
+    }
