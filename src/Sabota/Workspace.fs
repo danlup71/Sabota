@@ -225,6 +225,10 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
 
     printfnColor ConsoleColor.Gray "**************************************************"
     printfnColor ConsoleColor.Cyan $"  Discovered {summary.TotalMutations} candidates across {summary.TotalFiles} files..."
+    summary.Categories
+    |> List.iter (fun c ->
+        printfnColor ConsoleColor.Gray $"    {string c.Category,-20} {c.Count}"
+    )
     printfnColor ConsoleColor.Gray "**************************************************"
 
     // HARDCODED: set to true to enable split build/test timing

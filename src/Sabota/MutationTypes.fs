@@ -161,9 +161,16 @@ type FileMutationSummary =
         MutationCount: int
     }
 
+type CategoryMutationSummary =
+    {
+        Category: MutationCategory
+        Count: int
+    }
+
 type MutationDiscoverySummary =
     {
         TotalFiles: int
         TotalMutations: int
         Files: FileMutationSummary list
+        Categories: CategoryMutationSummary list
     }

@@ -204,17 +204,29 @@ let discoverMutationsForFile (file : string) (mutationCategories : MutationCateg
 
 /// Scan all target files and return a summary of discovered mutations per file.
 let discoverAllMutations (files : string list) (mutationCategories : MutationCategory list) : MutationDiscoverySummary =
-    let fileSummaries =
+    let fileSummaries, allCandidates =
         files
         |> List.map (fun file ->
             let candidates = discoverMutationsForFile file mutationCategories
-            { File = file; MutationCount = List.length candidates }
+            { File = file; MutationCount = List.length candidates }, candidates
         )
+        |> List.unzip
+
+    let totalMutations = fileSummaries |> List.sumBy (fun s -> s.MutationCount)
+
+    let allCandidatesList = List.concat allCandidates
+    let categories =
+        allCandidatesList
+        |> List.map (fun c -> getCategory c.Kind)
+        |> List.countBy id
+        |> List.map (fun (cat, count) -> { Category = cat; Count = count })
+        |> List.sortByDescending (fun c -> c.Count)
 
     {
         TotalFiles = List.length files
-        TotalMutations = fileSummaries |> List.sumBy (fun s -> s.MutationCount)
+        TotalMutations = totalMutations
         Files = fileSummaries
+        Categories = categories
     }
 
 
