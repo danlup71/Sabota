@@ -241,21 +241,26 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
         | TestRunnerOutcome.TestsFailed -> "KILLED", ConsoleColor.DarkGreen
         | TestRunnerOutcome.TestsPassed -> "SURVIVED", ConsoleColor.Red
 
-    let printProgress (kind : string, outcome : TestRunnerOutcome, testSw : Stopwatch) =
+    let formatTime (totalSeconds : double) : string =
+        let secs = int64 totalSeconds
+        let h = secs / 3600L
+        let m = (secs % 3600L) / 60L
+        let s = secs % 60L
+        match h, m, s with
+        | 0L, 0L, _ -> $"{s}s"
+        | 0L, _, _ -> $"{m}m {s}s"
+        | _, _, _ -> $"{h}h {m}m {s}s"
+
+    let printProgressPrefix (line : int, kind : string) =
         testsCompleted <- testsCompleted + 1
+        let prefix = $"  [{testsCompleted}/{totalTests}] ln. {line,-3} testing {kind,-20} -> "
+        Console.Write prefix
+
+    let printProgressSuffix (outcome : TestRunnerOutcome, testSw : Stopwatch) =
         totalTestTime <- totalTestTime + testSw.Elapsed
         let label, color = outcomeLabel outcome
         let avgSeconds = totalTestTime.TotalSeconds / double testsCompleted
         let remaining = totalTests - testsCompleted
-        let formatTime (totalSeconds : double) : string =
-            let secs = int64 totalSeconds
-            let h = secs / 3600L
-            let m = (secs % 3600L) / 60L
-            let s = secs % 60L
-            match h, m, s with
-            | 0L, 0L, _ -> $"{s}s"
-            | 0L, _, _ -> $"{m}m {s}s"
-            | _, _, _ -> $"{h}h {m}m {s}s"
 
         let etaSeconds =
             if remaining > 0 then
@@ -263,16 +268,23 @@ let runMutationAnalysis workspace :Result<RunResult,MultiError> =
             else
                 0.0
         let lastSeconds = testSw.Elapsed.TotalSeconds
-        printfnColor color $"  [{testsCompleted}/{totalTests}] {label} | Last: {formatTime lastSeconds} | Avg: {formatTime avgSeconds} | ETA: {formatTime etaSeconds}"
+        Console.ForegroundColor <- color
+        Console.Write label
+        Console.ResetColor()
+        printfn $" | Last: {formatTime lastSeconds} | Avg: {formatTime avgSeconds} | ETA: {formatTime etaSeconds}"
 
     let result =
         files
         |> List.collect (fun file ->
             processFile file workspace.Folder workspace.TestProject workspace.Config.Categories
-                         workspace.SolutionDir collector splitMode
-                         workspace.TestProjectArtifactsCache workspace.SolutionArtifactsCache
-                         printProgress
+                     workspace.SolutionDir collector splitMode
+                     workspace.TestProjectArtifactsCache workspace.SolutionArtifactsCache
+                     printProgressPrefix printProgressSuffix
         )
+
+    // Progress callback types:
+    // printProgressPrefix signature: int * string -> unit
+    // printProgressSuffix signature: TestRunnerOutcome * Stopwatch -> unit
 
     let executionTime = stopAndRecord collector "overall" overallSw
 

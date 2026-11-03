@@ -218,7 +218,7 @@ let discoverAllMutations (files : string list) (mutationCategories : MutationCat
     }
 
 
-let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) (testArtifactCache : string option) (solutionArtifactCache : string option) (onTestComplete : string * TestRunnerOutcome * Stopwatch -> unit) : list<MutationResult> =
+let processFile (file : string) (workFolder : string) (workTestPrj : string) mutationCategories solutionRoot (collector : TimingCollector) (splitMode : bool) (testArtifactCache : string option) (solutionArtifactCache : string option) (onTestPrefix : int * string -> unit) (onTestSuffix : TestRunnerOutcome * Stopwatch -> unit) : list<MutationResult> =
     // Restore build artifacts at file boundary so each file starts from a clean baseline
     // Within a file, obj/bin persist to enable incremental compilation
     let workTestPrjDir =
@@ -256,7 +256,7 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
     stopAndRecord collector "find candidates" candidatesSw |> ignore
 
     let fileName = Path.GetFileName file
-    printfnColor ConsoleColor.DarkGray $"  {fileName}: {List.length candidates} candidates found"
+    printfnColor ConsoleColor.DarkGray $"mutating {fileName}: {List.length candidates} candidates found"
 
     // Time file copy
     let copySw = Stopwatch.StartNew()
@@ -275,13 +275,12 @@ let processFile (file : string) (workFolder : string) (workTestPrj : string) mut
             stopAndRecord collector "apply mutation" applySw |> ignore
 
             // Print prefix before testing
-            printf $"  apply mutation {string candidate.Kind,-20} -> testing ->"
-
+            onTestPrefix (candidate.Range.StartLine, string candidate.Kind)
             // Time test execution
             let testSw : Stopwatch = Stopwatch.StartNew()
             let testOutcome = test workTestPrj solutionRoot splitMode (Some collector)
             testSw.Stop()
-            onTestComplete (string candidate.Kind, testOutcome, testSw)
+            onTestSuffix (testOutcome, testSw)
             let outcome =
                 match testOutcome with
                 | TestRunnerOutcome.BuildFailed ->
