@@ -69,6 +69,7 @@ let parseArgs (args : string[]) : ParseResult =
         }
 
 let loadSettings () : Result<ConfigDefaults, MultiError> =
+    migrateOldConfig () |> ignore
     let config = loadConfig defaultConfigPath
 
     let cliResult : Result<ParsedArgs, MultiError> =
@@ -83,7 +84,7 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
             | Some v -> Some v
             | None -> Some config.TestProject
         match testProjectOpt with
-        | None -> Result.Error (MissingTestProject "Missing required argument: -t (test project). Set it via CLI or in sabota_config.json.")
+        | None -> Result.Error (MissingTestProject "Missing required argument: -t (test project). Set it via CLI or in sabota.json.")
         | Some _ -> Result.Ok (cli, testProjectOpt)
     )
     |> Result.bind (fun (cli, testProjectOpt) ->
@@ -92,7 +93,7 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
             | Some v -> Some v
             | None -> Some config.SolutionRoot
         match solutionRootOpt with
-        | None -> Result.Error (MissingSolutionRoot "Missing required argument: -s (solution root). Set it via CLI or in sabota_config.json.")
+        | None -> Result.Error (MissingSolutionRoot "Missing required argument: -s (solution root). Set it via CLI or in sabota.json.")
         | Some _ -> Result.Ok (cli, testProjectOpt, solutionRootOpt)
     )
     |> Result.bind (fun (cli, testProjectOpt, solutionRootOpt) ->

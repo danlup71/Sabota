@@ -7,7 +7,28 @@ open Sabota.MutationTypes
 
 
 
-let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota_config.json")
+let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota.json")
+
+let oldConfigFileName = "sabota_config.json"
+let newConfigFileName = "sabota.json"
+
+/// Renames the old config file (sabota_config.json) to the new name (sabota.json)
+/// if the old file exists and the new one does not. Returns true if migration happened.
+let migrateOldConfig () : bool =
+    let configDir = Directory.GetCurrentDirectory()
+    let oldPath = Path.Combine(configDir, oldConfigFileName)
+    let newPath = Path.Combine(configDir, newConfigFileName)
+    if File.Exists oldPath && not (File.Exists newPath) then
+        try
+            File.Move(oldPath, newPath)
+            printfn "Info: renamed old config file '%s' to '%s'" oldConfigFileName newConfigFileName
+            true
+        with
+        | :? System.IO.IOException ->
+            printfn "Warning: could not rename old config file '%s' to '%s'" oldConfigFileName newConfigFileName
+            false
+    else
+        false
 
 let categoryMap : Map<string, MutationCategory> =
     Map.ofList [

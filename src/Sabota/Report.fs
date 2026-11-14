@@ -439,7 +439,7 @@ let reportResults runResult : unit =
 let printUsage() =
     eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>]"
     eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
-    eprintfn "  Arguments can be set in sabota_config.json or via CLI (CLI takes precedence)."
+    eprintfn "  Arguments can be set in sabota.json or via CLI (CLI takes precedence)."
 
 let printError err =
     match err with

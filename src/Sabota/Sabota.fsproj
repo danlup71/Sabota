@@ -18,7 +18,7 @@
     </PropertyGroup>
     
     <ItemGroup>
-        <Content Include="sabota_config.json">
+        <Content Include="sabota.json">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>Always</CopyToPublishDirectory>
         </Content>

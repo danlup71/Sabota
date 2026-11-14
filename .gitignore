@@ -7,7 +7,6 @@ resources/UnitTest/obj/
 resources/Samples/bin/
 resources/Samples/obj/
 
-
 sabota_result/
 /packages/
 riderModule.iml
@@ -24,4 +23,5 @@ obj/
 .idea/
 *.sln.DotSettings.user
 
+.junie
 .junie/

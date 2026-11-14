@@ -88,7 +88,7 @@ let CustomFsName = "custom.fs"
 let ExcludedBuildDirs = Set.ofList ["debug"; "release"; "bin"; "obj"]
 
 /// Config file name used in config loading tests.
-let ConfigFileName = "sabota_config.json"
+let ConfigFileName = "sabota.json"
 
 /// Config subdirectory name used in config path resolution tests.
 let ConfigSubDirName = "config"
