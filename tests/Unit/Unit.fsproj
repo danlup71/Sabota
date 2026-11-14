@@ -16,6 +16,7 @@
         <Compile Include="_006_ExcludedDirectories.fs" />
         <Compile Include="_007_ConfigLoading.fs" />
         <Compile Include="_008_MutationDiscovery.fs" />
+        <Compile Include="_009_InitConfig.fs" />
     </ItemGroup>
 
     <ItemGroup>

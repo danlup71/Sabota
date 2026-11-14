@@ -7,7 +7,7 @@ open Sabota.MutationTypes
 
 
 
-let defaultConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "sabota.json")
+let defaultConfigPath () = Path.Combine(Directory.GetCurrentDirectory(), "sabota.json")
 
 let oldConfigFileName = "sabota_config.json"
 let newConfigFileName = "sabota.json"
@@ -97,6 +97,35 @@ let resolvePathRelativeToConfig (configPath : string) (path : string) : string =
                 Path.GetFullPath (Path.Combine(configDir, p))
     )
     |> String.concat ","
+
+/// Creates a sabota.json config file in the current directory if it does not already exist.
+/// The file has all categories enabled and placeholder paths for testProject and solutionRoot.
+/// Returns true if the file was created, false if it already existed.
+let initConfig () : bool =
+    let path = defaultConfigPath ()
+    if File.Exists path then
+        printfn "Config file already exists at '%s'" path
+        false
+    else
+        let categoriesJson =
+            categoryMap
+            |> Map.toList
+            |> List.map (fun (name, _) -> sprintf "        \"%s\": true" name)
+            |> String.concat ",\n"
+        let json =
+            "{\n" +
+            "    \"testProject\": \"Path_To_UnitTest.fsproj\",\n" +
+            "    \"solutionRoot\": \"Path_To_Solution_Folder\",\n" +
+            "    \"file\": \"\",\n" +
+            "    \"directory\": \"\",\n" +
+            "    \"categories\":\n" +
+            "    {\n" +
+            categoriesJson + "\n" +
+            "    }\n" +
+            "}"
+        File.WriteAllText(path, json)
+        printfn "Created config file at '%s'" path
+        true
 
 let loadConfig (configPath : string) : ConfigDefaults =
     if not (File.Exists configPath) then

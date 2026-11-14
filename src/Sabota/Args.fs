@@ -15,6 +15,7 @@ type ParsedArgs = {
 
 type ParseResult =
     | Ok of ParsedArgs
+    | Init
     | Error of string
 
 let parseArgs (args : string[]) : ParseResult =
@@ -23,11 +24,15 @@ let parseArgs (args : string[]) : ParseResult =
     let mutable filePath = None
     let mutable directoryPath = None
     let mutable categories = None
+    let mutable isInit = false
 
     let rec loop i =
         if i >= args.Length then ()
         else
             match args.[i] with
+            | "init" ->
+                isInit <- true
+                loop (i + 1)
             | "-t" when i + 1 < args.Length ->
                 testProject <- Some args.[i + 1]
                 loop (i + 2)
@@ -50,32 +55,36 @@ let parseArgs (args : string[]) : ParseResult =
 
     loop 0
 
-    // Check mutual exclusivity
-    if filePath.IsSome && directoryPath.IsSome then
-        Error "-f and -d are mutually exclusive; specify only one"
+    if isInit then
+        Init
     else
-        let target =
-            match filePath, directoryPath with
-            | Some fs, None -> Some (Files fs)
-            | None, Some ds -> Some (Directories ds)
-            | None, None -> None
-            | _, _ -> None
+        // Check mutual exclusivity
+        if filePath.IsSome && directoryPath.IsSome then
+            Error "-f and -d are mutually exclusive; specify only one"
+        else
+            let target =
+                match filePath, directoryPath with
+                | Some fs, None -> Some (Files fs)
+                | None, Some ds -> Some (Directories ds)
+                | None, None -> None
+                | _, _ -> None
 
-        Ok {
-            TestProject = testProject
-            SolutionRoot = solutionRoot
-            Target = target
-            Categories = categories
-        }
+            Ok {
+                TestProject = testProject
+                SolutionRoot = solutionRoot
+                Target = target
+                Categories = categories
+            }
 
 let loadSettings () : Result<ConfigDefaults, MultiError> =
     migrateOldConfig () |> ignore
-    let config = loadConfig defaultConfigPath
+    let config = loadConfig (defaultConfigPath ())
 
     let cliResult : Result<ParsedArgs, MultiError> =
         match parseArgs (Environment.GetCommandLineArgs()) with
         | Ok args -> Result.Ok args
         | Error msg -> Result.Error (ParseError msg)
+        | Init -> Result.Error (ParseError "Unexpected 'init' argument in loadSettings")
 
     cliResult
     |> Result.bind (fun cli ->

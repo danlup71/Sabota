@@ -92,6 +92,9 @@ type TestApp =
             | Error msg ->
                 Assert.Fail($"Expected Ok, got Error: {msg}")
                 Unchecked.defaultof<ParsedArgs>
+            | Init ->
+                Assert.Fail("Expected Ok, got Init")
+                Unchecked.defaultof<ParsedArgs>
 
     /// Assert that the Target file list contains the expected items.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -134,6 +137,8 @@ type TestApp =
                 Assert.Contains(expected, msg)
             | Ok _ ->
                 Assert.Fail("Expected Error, got Ok")
+            | Init ->
+                Assert.Fail("Expected Error, got Init")
 
     /// Assert the TestProject field matches the expected value.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -160,6 +165,9 @@ type TestApp =
             | Error msg ->
                 Assert.Fail($"Expected Ok, got Error: {msg}")
                 Unchecked.defaultof<ParsedArgs>
+            | Init ->
+                Assert.Fail("Expected Ok, got Init")
+                Unchecked.defaultof<ParsedArgs>
 
     /// Assert that the TestProject field is None.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -175,6 +183,15 @@ type TestApp =
             Assert.Equal(None, parsed.SolutionRoot)
             parsed
 
+    /// Assert that the parse result is the Init variant.
+    /// Returns a function ParseResult -> unit for pipeline chaining.
+    static member Assert_ParseResult_IsInit() : ParseResult -> unit =
+        fun result ->
+            match result with
+            | Init -> ()
+            | Ok _ -> Assert.Fail("Expected Init, got Ok")
+            | Error msg -> Assert.Fail($"Expected Init, got Error: {msg}")
+
     /// Assert that the simulated environment satisfies the minimal requirements for the application to run.
     /// Returns a function ParseResult -> unit for pipeline chaining.
     static member Assert_MinimalRequirementsMet() : ParseResult -> unit =
@@ -183,6 +200,8 @@ type TestApp =
             | Ok _ -> ()
             | Error msg ->
                 Assert.Fail($"Expected Ok, got Error: {msg}")
+            | Init ->
+                Assert.Fail("Expected Ok, got Init")
 
     /// Wrapper that calls checkPaths and converts the Result back to ParseResult for test compatibility.
     /// Returns a function that takes no additional arguments (curried from checkPaths' parameters).
@@ -202,6 +221,8 @@ type TestApp =
                 Assert.Contains(expected, msg)
             | Ok _ ->
                 Assert.Fail("Expected Error, got Ok")
+            | Init ->
+                Assert.Fail("Expected Error, got Init")
 
     /// Create a simulated project environment with a test project file, a solution subdirectory, source files, and directories.
     /// Accepts the Stub data explicitly as parameters plus the base directory path (file content is hardcoded as it is not validated).

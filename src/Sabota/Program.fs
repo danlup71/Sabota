@@ -1,4 +1,5 @@
 open Sabota.Args
+open Sabota.Config
 open Sabota.Report
 open Sabota.Workspace
 
@@ -9,12 +10,18 @@ let run() =
     |> Result.bind prepareWorkspace
     |> Result.bind runMutationAnalysis
 
-match run() with
-| Result.Ok runResult ->
-    reportResults runResult
+match parseArgs (System.Environment.GetCommandLineArgs()) with
+| Init ->
+    initConfig () |> ignore
     exit 0
 
-| Result.Error err ->
-    printError err
-    exit 1
+| _ ->
+    match run() with
+    | Result.Ok runResult ->
+        reportResults runResult
+        exit 0
+
+    | Result.Error err ->
+        printError err
+        exit 1
     
