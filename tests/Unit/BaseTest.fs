@@ -95,6 +95,12 @@ type TestApp =
             | Init ->
                 Assert.Fail("Expected Ok, got Init")
                 Unchecked.defaultof<ParsedArgs>
+            | Help ->
+                Assert.Fail("Expected Ok, got Help")
+                Unchecked.defaultof<ParsedArgs>
+            | Version ->
+                Assert.Fail("Expected Ok, got Version")
+                Unchecked.defaultof<ParsedArgs>
 
     /// Assert that the Target file list contains the expected items.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -139,6 +145,10 @@ type TestApp =
                 Assert.Fail("Expected Error, got Ok")
             | Init ->
                 Assert.Fail("Expected Error, got Init")
+            | Help ->
+                Assert.Fail("Expected Error, got Help")
+            | Version ->
+                Assert.Fail("Expected Error, got Version")
 
     /// Assert the TestProject field matches the expected value.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -175,6 +185,12 @@ type TestApp =
             | Init ->
                 Assert.Fail("Expected Ok, got Init")
                 Unchecked.defaultof<ParsedArgs>
+            | Help ->
+                Assert.Fail("Expected Ok, got Help")
+                Unchecked.defaultof<ParsedArgs>
+            | Version ->
+                Assert.Fail("Expected Ok, got Version")
+                Unchecked.defaultof<ParsedArgs>
 
     /// Assert that the TestProject field is None.
     /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
@@ -197,7 +213,31 @@ type TestApp =
             match result with
             | Init -> ()
             | Ok _ -> Assert.Fail("Expected Init, got Ok")
+            | Help -> Assert.Fail("Expected Init, got Help")
+            | Version -> Assert.Fail("Expected Init, got Version")
             | Error msg -> Assert.Fail($"Expected Init, got Error: {msg}")
+
+    /// Assert that the parse result is the Help variant.
+    /// Returns a function ParseResult -> unit for pipeline chaining.
+    static member Assert_ParseResult_IsHelp() : ParseResult -> unit =
+        fun result ->
+            match result with
+            | Help -> ()
+            | Ok _ -> Assert.Fail("Expected Help, got Ok")
+            | Init -> Assert.Fail("Expected Help, got Init")
+            | Version -> Assert.Fail("Expected Help, got Version")
+            | Error msg -> Assert.Fail($"Expected Help, got Error: {msg}")
+
+    /// Assert that the parse result is the Version variant.
+    /// Returns a function ParseResult -> unit for pipeline chaining.
+    static member Assert_ParseResult_IsVersion() : ParseResult -> unit =
+        fun result ->
+            match result with
+            | Version -> ()
+            | Ok _ -> Assert.Fail("Expected Version, got Ok")
+            | Init -> Assert.Fail("Expected Version, got Init")
+            | Help -> Assert.Fail("Expected Version, got Help")
+            | Error msg -> Assert.Fail($"Expected Version, got Error: {msg}")
 
     /// Assert that the simulated environment satisfies the minimal requirements for the application to run.
     /// Returns a function ParseResult -> unit for pipeline chaining.
@@ -209,6 +249,10 @@ type TestApp =
                 Assert.Fail($"Expected Ok, got Error: {msg}")
             | Init ->
                 Assert.Fail("Expected Ok, got Init")
+            | Help ->
+                Assert.Fail("Expected Ok, got Help")
+            | Version ->
+                Assert.Fail("Expected Ok, got Version")
 
     /// Wrapper that calls checkPaths and converts the Result back to ParseResult for test compatibility.
     /// Returns a function that takes no additional arguments (curried from checkPaths' parameters).
@@ -230,6 +274,10 @@ type TestApp =
                 Assert.Fail("Expected Error, got Ok")
             | Init ->
                 Assert.Fail("Expected Error, got Init")
+            | Help ->
+                Assert.Fail("Expected Error, got Help")
+            | Version ->
+                Assert.Fail("Expected Error, got Version")
 
     /// Create a simulated project environment with a test project file, a solution subdirectory, source files, and directories.
     /// Accepts the Stub data explicitly as parameters plus the base directory path (file content is hardcoded as it is not validated).

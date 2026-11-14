@@ -17,6 +17,8 @@ type ParsedArgs = {
 type ParseResult =
     | Ok of ParsedArgs
     | Init
+    | Help
+    | Version
     | Error of string
 
 let parseArgs (args : string[]) : ParseResult =
@@ -27,6 +29,8 @@ let parseArgs (args : string[]) : ParseResult =
     let mutable categories = None
     let mutable configPath = None
     let mutable isInit = false
+    let mutable isHelp = false
+    let mutable isVersion = false
 
     let rec loop i =
         if i >= args.Length then ()
@@ -34,6 +38,12 @@ let parseArgs (args : string[]) : ParseResult =
             match args.[i] with
             | "init" ->
                 isInit <- true
+                loop (i + 1)
+            | "help" | "--help" ->
+                isHelp <- true
+                loop (i + 1)
+            | "--version" ->
+                isVersion <- true
                 loop (i + 1)
             | "-t" when i + 1 < args.Length ->
                 testProject <- Some args.[i + 1]
@@ -60,7 +70,11 @@ let parseArgs (args : string[]) : ParseResult =
 
     loop 0
 
-    if isInit then
+    if isHelp then
+        Help
+    elif isVersion then
+        Version
+    elif isInit then
         Init
     else
         // Check mutual exclusivity
@@ -90,6 +104,8 @@ let loadSettings () : Result<ConfigDefaults, MultiError> =
         | Ok args -> Result.Ok args
         | Error msg -> Result.Error (ParseError msg)
         | Init -> Result.Error (ParseError "Unexpected 'init' argument in loadSettings")
+        | Help -> Result.Error (ParseError "Unexpected 'help' argument in loadSettings")
+        | Version -> Result.Error (ParseError "Unexpected '--version' argument in loadSettings")
 
     let configPath =
         cliResult

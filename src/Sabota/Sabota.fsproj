@@ -3,18 +3,26 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
+        
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>sabota</ToolCommandName>
+        <PackageId>Sabota</PackageId>
+        
         <RootNamespace>Sabota</RootNamespace>
         <PublishSingleFile>true</PublishSingleFile>
         <UseAppHost>true</UseAppHost>
-        <Version>0.1.0</Version>
+        <Version>0.3.0</Version>
         <Title>Sabota</Title>
-        <Authors>Daniele Luppi</Authors>
-        <Description>Mutation testing for F# using AST discovery and source-text mutations.</Description>
+        <Authors>danlup71</Authors>
+        <Description>Mutation testing for F# using AST discovery and source-text mutations. Friendly neighborhood code vandalism for F#</Description>
         <Copyright>Copyright (c) 2026 Daniele Luppi</Copyright>
         <RepositoryUrl>https://github.com/danlup71/Sabota</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageTags>fsharp; mutation-testing; testing; dotnet; cli; code-quality</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <Company>Daniele Luppi</Company>
-        <AssemblyVersion>0.1.0</AssemblyVersion>
+        <AssemblyVersion>0.3.0</AssemblyVersion>
     </PropertyGroup>
     
     <ItemGroup>
@@ -45,5 +53,7 @@
       <PackageReference Include="FSharp.Compiler.Service" Version="43.12.402" />
       <PackageReference Update="FSharp.Core" Version="10.1.402" />
     </ItemGroup>
-
+    <ItemGroup>
+        <None Include="../../README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 </Project>

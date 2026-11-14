@@ -11,6 +11,14 @@ let run() =
     |> Result.bind runMutationAnalysis
 
 match parseArgs (System.Environment.GetCommandLineArgs()) with
+| Help ->
+    printUsage()
+    exit 0
+
+| Version ->
+    printVersion()
+    exit 0
+
 | Init ->
     initConfig () |> ignore
     exit 0

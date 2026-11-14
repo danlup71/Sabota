@@ -513,3 +513,43 @@ let ``39. when -config is combined with other flags, all are recognized`` () =
     |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
     |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
     |> TestApp.Assert_ArgsConfigPath (Some "custom.json")
+
+[<Fact>]
+let ``40. when --help flag is provided, help is requested`` () =
+    // Arrange
+    "--help"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ParseResult_IsHelp()
+
+[<Fact>]
+let ``41. when help command is provided, help is requested`` () =
+    // Arrange
+    "help"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ParseResult_IsHelp()
+
+[<Fact>]
+let ``42. when --version flag is provided, version is requested`` () =
+    // Arrange
+    "--version"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ParseResult_IsVersion()
+
+[<Fact>]
+let ``43. when help takes precedence over other arguments, help is returned`` () =
+    // Arrange
+    "--help -t test.fsproj -s solution_root"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ParseResult_IsHelp()

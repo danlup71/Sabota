@@ -436,13 +436,38 @@ let reportResults runResult : unit =
     let clickable = $"\x1b]8;;%s{linkTarget}\x1b\\%s{reportPath}\x1b]8;;\x1b\\"
     printfnColor ConsoleColor.Cyan $"\nHTML report generated: {clickable}"
 
+let printVersion() =
+    let version =
+        System.Reflection.Assembly.GetExecutingAssembly().GetName().Version
+        |> Option.ofObj
+        |> function
+            | Some v -> sprintf "%d.%d.%d" v.Major v.Minor v.Build
+            | None -> "0.0.0"
+    printfn "Sabota %s" version
+
 let printUsage() =
-    eprintfn "Usage: Sabota [-t <testProject>] [-s <solutionRoot>] [(-f <file1,file2,...> | -d <directory>)] [-c <categories>] [-config <path>]"
-    eprintfn "       Sabota init"
-    eprintfn "  If neither -f nor -d is provided, -s (solution root) will be used as the directory target."
-    eprintfn "  Arguments can be set in sabota.json or via CLI (CLI takes precedence)."
-    eprintfn "  '-config' specifies a custom config file path (defaults to sabota.json in the current directory)."
-    eprintfn "  'init' creates a sabota.json config file in the current directory if it does not already exist."
+    printfn "Usage: Sabota [command] [options]"
+    printfn ""
+    printfn "Commands:"
+    printfn "  init          Create a sabota.json config file in the current directory (if not present)."
+    printfn "  help          Show this help message."
+    printfn "  --help        Show this help message."
+    printfn "  --version     Show version information."
+    printfn ""
+    printfn "Options:"
+    printfn "  -t <project>  Path to the unit test project (.fsproj)."
+    printfn "  -s <root>     Path to the solution root directory."
+    printfn "  -f <files>    Comma-separated list of F# source files to mutate."
+    printfn "  -d <dirs>     Comma-separated list of directories to scan for files."
+    printfn "  -c <cats>     Comma-separated mutation categories to enable."
+    printfn "  -config <p>   Path to a custom config file (default: sabota.json in current directory)."
+    printfn ""
+    printfn "Configuration:"
+    printfn "  Settings can be stored in sabota.json. CLI arguments always take precedence."
+    printfn "  Use 'sabota init' to create a config file with all categories enabled."
+    printfn ""
+    printfn "Target:"
+    printfn "  If neither -f nor -d is provided, the solution root (-s) is used as the directory target."
 
 let printError err =
     match err with
