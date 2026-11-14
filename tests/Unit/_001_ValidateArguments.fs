@@ -451,3 +451,65 @@ let ``35. when a single directory is specified, it forms a list of one`` () =
     // Assert
     |> TestApp.Assert_ArgsTarget_Size 1
     |> TestApp.Assert_ArgsDirectory_Contains ["single_dir"]
+
+[<Fact>]
+let ``36. when -config flag is provided, the config path is parsed`` () =
+    // Arrange
+    "-t test.fsproj -s solution_root -config custom.json"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_IsMissing()
+    |> TestApp.Assert_ArgsConfigPath (Some "custom.json")
+
+[<Fact>]
+let ``37. when -config flag is omitted, the config path is absent`` () =
+    // Arrange
+    "-t test.fsproj -s solution_root -f file.fs"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsConfigPath None
+
+[<Fact>]
+let ``38. when -config flag points to a custom config file, that config is loaded`` () =
+    // Arrange
+    let baseDir = TestApp.CreateSimulatedBaseDir()
+    try
+        let customConfigPath = Path.Combine(baseDir, Stub.CustomConfigFileName)
+        let json =
+            "{\n" +
+            "    \"testProject\": \"custom_test.fsproj\",\n" +
+            "    \"solutionRoot\": \"custom_solution\",\n" +
+            "    \"file\": \"\",\n" +
+            "    \"directory\": \"\",\n" +
+            "    \"categories\":\n" +
+            "    {\n" +
+            "        \"Equality\": true\n" +
+            "    }\n" +
+            "}"
+        File.WriteAllText(customConfigPath, json) |> ignore
+        // Act
+        let config = Sabota.Config.loadConfig customConfigPath
+        // Assert
+        Assert.EndsWith("custom_test.fsproj", config.TestProject)
+        Assert.EndsWith("custom_solution", config.SolutionRoot)
+    finally
+        TestApp.CleanSimulatedEnvironment baseDir
+
+[<Fact>]
+let ``39. when -config is combined with other flags, all are recognized`` () =
+    // Arrange
+    "-t test.fsproj -s solution_root -f file.fs -c Equality -config custom.json"
+    |> TestApp.ParseCommandLine
+    // Act
+    |> parseArgs
+    // Assert
+    |> TestApp.Assert_ArgsTarget_Size 1
+    |> TestApp.Assert_ArgsTarget_Contains ["file.fs"]
+    |> TestApp.Assert_ArgsTestProject (Some "test.fsproj")
+    |> TestApp.Assert_ArgsSolutionRoot (Some "solution_root")
+    |> TestApp.Assert_ArgsConfigPath (Some "custom.json")

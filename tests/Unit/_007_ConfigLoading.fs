@@ -1,4 +1,4 @@
-module _007_ConfigLoading
+module Tests._007_ConfigLoading
 
 open System
 open System.IO

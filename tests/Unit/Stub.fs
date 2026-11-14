@@ -99,5 +99,8 @@ let ResourcesDirName = "resources"
 /// UnitTest subdirectory name used in config path resolution tests.
 let UnitTestDirName = "UnitTest"
 
+/// Custom config file name used in -config flag tests.
+let CustomConfigFileName = "custom_config.json"
+
 
 

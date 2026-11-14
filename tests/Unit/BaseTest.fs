@@ -154,6 +154,13 @@ type TestApp =
             Assert.Equal(expected, parsed.SolutionRoot)
             parsed
 
+    /// Assert the ConfigPath field matches the expected value.
+    /// Returns a function ParsedArgs -> ParsedArgs for pipeline chaining.
+    static member Assert_ArgsConfigPath(expected : string option) : ParsedArgs -> ParsedArgs =
+        fun parsed ->
+            Assert.Equal(expected, parsed.ConfigPath)
+            parsed
+
     /// Unwrap a ParseResult Ok value and assert that the Target field is None.
     /// Returns a function ParseResult -> ParsedArgs for pipeline chaining.
     static member Assert_ArgsTarget_IsMissing() : ParseResult -> ParsedArgs =

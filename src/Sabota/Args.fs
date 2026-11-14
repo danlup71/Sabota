@@ -11,6 +11,7 @@ type ParsedArgs = {
     SolutionRoot : string option
     Target : FileTarget option
     Categories : string option
+    ConfigPath : string option
 }
 
 type ParseResult =
@@ -24,6 +25,7 @@ let parseArgs (args : string[]) : ParseResult =
     let mutable filePath = None
     let mutable directoryPath = None
     let mutable categories = None
+    let mutable configPath = None
     let mutable isInit = false
 
     let rec loop i =
@@ -50,6 +52,9 @@ let parseArgs (args : string[]) : ParseResult =
             | "-c" when i + 1 < args.Length ->
                 categories <- Some args.[i + 1]
                 loop (i + 2)
+            | "-config" when i + 1 < args.Length ->
+                configPath <- Some args.[i + 1]
+                loop (i + 2)
             | _ ->
                 loop (i + 1)
 
@@ -74,17 +79,24 @@ let parseArgs (args : string[]) : ParseResult =
                 SolutionRoot = solutionRoot
                 Target = target
                 Categories = categories
+                ConfigPath = configPath
             }
 
 let loadSettings () : Result<ConfigDefaults, MultiError> =
     migrateOldConfig () |> ignore
-    let config = loadConfig (defaultConfigPath ())
 
     let cliResult : Result<ParsedArgs, MultiError> =
         match parseArgs (Environment.GetCommandLineArgs()) with
         | Ok args -> Result.Ok args
         | Error msg -> Result.Error (ParseError msg)
         | Init -> Result.Error (ParseError "Unexpected 'init' argument in loadSettings")
+
+    let configPath =
+        cliResult
+        |> Result.map (fun args -> defaultArg args.ConfigPath (defaultConfigPath ()))
+        |> Result.defaultWith (fun _ -> defaultConfigPath ())
+
+    let config = loadConfig configPath
 
     cliResult
     |> Result.bind (fun cli ->
@@ -176,6 +188,7 @@ let validatePaths (testProject : string) (solutionRoot : string) (target : FileT
             SolutionRoot = Some solutionRoot
             Target = Some target
             Categories = None
+            ConfigPath = None
         }
     else
         Result.Error (ValidationError (String.Join("\n", errors)))
